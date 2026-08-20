@@ -912,6 +912,22 @@ function setupEventListeners() {
         myProfileBtn.src = dataUrl;
         settingsProfileImg.src = dataUrl;
         saveToStorage();
+
+        // Broadcast new profile photo to all contacts instantly
+        const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+        if (myUser && mqttClient && mqttClient.connected) {
+          contacts.forEach(contact => {
+            if (contact.type !== 'group' && contact.phone) {
+              const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
+              mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+                type: 'avatar_update',
+                senderPhone: myUser.phone,
+                senderName: myUser.name,
+                senderAvatar: dataUrl
+              }));
+            }
+          });
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -1689,6 +1705,10 @@ function publishMqttMessage(contact, msg) {
 
 // Handle Incoming Direct Messages
 function handleIncomingMqttMessage(payload) {
+  if (payload.type === 'avatar_update') {
+    handleIncomingAvatarUpdate(payload);
+    return;
+  }
   if (payload.type === 'call_invite') {
     handleIncomingCallInvite(payload);
     return;
@@ -1754,6 +1774,20 @@ function handleIncomingMqttMessage(payload) {
   renderList();
   saveToStorage();
   playNotificationSound();
+}
+
+// Handle avatar update broadcasts from other users
+function handleIncomingAvatarUpdate(payload) {
+  const phone = payload.senderPhone;
+  let contact = contacts.find(c => cleanPhoneNumber(c.phone) === cleanPhoneNumber(phone));
+  if (contact) {
+    contact.avatar = payload.senderAvatar;
+    if (currentChatId === contact.id) {
+      activeChatAvatar.src = contact.avatar;
+    }
+    renderList();
+    saveToStorage();
+  }
 }
 
 // Handle Incoming Group Messages
