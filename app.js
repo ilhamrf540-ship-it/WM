@@ -618,24 +618,8 @@ function sendMessage() {
 
 // Trigger simulated replies
 function triggerAutoReply(contact) {
-  setTimeout(() => {
-    const replyText = replyResponses[Math.floor(Math.random() * replyResponses.length)];
-    const replyTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    
-    contact.messages.push({
-      text: replyText,
-      sender: 'received',
-      time: replyTime
-    });
-
-    if (currentChatId === contact.id) {
-      renderMessages(contact);
-    } else {
-      contact.unreadCount++;
-    }
-    renderList();
-    saveToStorage();
-  }, 1500);
+  // Auto reply disabled globally
+  return;
 }
 
 // Toggle Icon inside Chat Footer based on Input Value
