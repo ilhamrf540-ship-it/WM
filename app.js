@@ -1674,6 +1674,7 @@ function publishMqttMessage(contact, msg) {
   const payload = {
     senderPhone: myUser.phone,
     senderName: myUser.name,
+    senderAvatar: myProfileBtn.src,
     ...msg,
     time: msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   };
@@ -1714,7 +1715,7 @@ function handleIncomingMqttMessage(payload) {
     contact = {
       id: newId,
       name: name,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      avatar: payload.senderAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
       phone: phone,
       statusMessage: "Hey there! I am using Whats Massage.",
       online: true,
@@ -1723,6 +1724,14 @@ function handleIncomingMqttMessage(payload) {
       statusStories: []
     };
     contacts.push(contact);
+  } else {
+    // If sender changed their profile photo, update it in our contacts list
+    if (payload.senderAvatar && contact.avatar !== payload.senderAvatar) {
+      contact.avatar = payload.senderAvatar;
+      if (currentChatId === contact.id) {
+        activeChatAvatar.src = contact.avatar;
+      }
+    }
   }
 
   contact.messages.push({
