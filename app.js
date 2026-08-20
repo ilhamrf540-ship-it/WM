@@ -195,6 +195,7 @@ const videoStreamContainer = document.getElementById('video-stream-container');
 const localVideo = document.getElementById('local-video');
 const callMicBtn = document.getElementById('call-mic-btn');
 const callVideoToggleBtn = document.getElementById('call-video-toggle-btn');
+const remoteVideoPlaceholder = document.getElementById('remote-video-placeholder');
 
 // Story Viewer Details
 const storyOverlay = document.getElementById('story-overlay');
@@ -1435,6 +1436,7 @@ function startCall(type) {
   // Show overlay in OUTGOING mode
   callAvatar.src = contact.avatar;
   callName.textContent = contact.name;
+  remoteVideoPlaceholder.src = contact.avatar;
   callOverlay.classList.remove('hidden');
 
   btnCallAccept.classList.add('hidden');
@@ -1539,6 +1541,7 @@ function endCallLocally() {
     localStream = null;
   }
   localVideo.srcObject = null;
+  remoteVideoPlaceholder.src = "";
   activeCallRecipientPhone = null;
   activeCallType = null;
 }
@@ -1589,8 +1592,10 @@ function handleIncomingCallInvite(payload) {
   activeCallType = payload.callType;
 
   // Show incoming call UI
-  callAvatar.src = payload.senderAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80';
+  const incomingAvatar = payload.senderAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80';
+  callAvatar.src = incomingAvatar;
   callName.textContent = payload.senderName;
+  remoteVideoPlaceholder.src = incomingAvatar;
   callOverlay.classList.remove('hidden');
 
   btnCallAccept.classList.remove('hidden');

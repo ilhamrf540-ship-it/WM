@@ -309,9 +309,13 @@
 
     <!-- CALL INTERFACE OVERLAY -->
     <div class="call-overlay hidden" id="call-overlay">
-      <!-- Local camera stream inside call overlay -->
-      <div id="video-stream-container" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #000;">
-        <video id="local-video" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+      <!-- Camera streams inside call overlay -->
+      <div id="video-stream-container" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background-color: #07120e;">
+        <!-- Remote User Simulated Video Feed -->
+        <img id="remote-video-placeholder" src="" style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.65) blur(4px); position: absolute; top: 0; left: 0;" alt="Remote Video">
+        
+        <!-- Local User Video (small floating box in corner) -->
+        <video id="local-video" autoplay muted playsinline style="position: absolute; top: 20px; right: 20px; width: 100px; height: 140px; object-fit: cover; border-radius: 8px; border: 2px solid white; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.5);"></video>
       </div>
 
       <div style="text-align: center; z-index: 10;">
