@@ -960,7 +960,7 @@ function setupEventListeners() {
         if (myUser && mqttClient && mqttClient.connected) {
           contacts.forEach(contact => {
             if (contact.type !== 'group' && contact.phone) {
-              const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
+              const cleanRecipientPhone = cleanPhoneNumber(contact.phone);
               mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
                 type: 'avatar_update',
                 senderPhone: myUser.phone,
@@ -1381,7 +1381,12 @@ function setupEventListeners() {
 // Clean phone numbers helper
 function cleanPhoneNumber(num) {
   if (!num) return "";
-  return num.replace(/[^a-zA-Z0-9]/g, "");
+  let cleaned = num.replace(/[^0-9]/g, ""); // keep digits only
+  // Normalize 628... to 08...
+  if (cleaned.startsWith("628")) {
+    cleaned = "08" + cleaned.slice(3);
+  }
+  return cleaned;
 }
 
 // Display simple floating toast notification for call events
@@ -1569,7 +1574,7 @@ function handleIncomingCallInvite(payload) {
   if (activeCallRecipientPhone) {
     const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
     if (myUser && mqttClient && mqttClient.connected) {
-      const cleanRecipientPhone = payload.senderPhone.replace(/[^a-zA-Z0-9]/g, "");
+      const cleanRecipientPhone = cleanPhoneNumber(payload.senderPhone);
       mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
         type: 'call_decline',
         senderPhone: myUser.phone
@@ -1724,13 +1729,19 @@ function connectMqtt(myPhone) {
   }
 
   // Clean phone number to make a valid topic name (alphanumeric only)
-  const cleanPhone = myPhone.replace(/[^a-zA-Z0-9]/g, "");
+  const cleanPhone = cleanPhoneNumber(myPhone);
   
   // Connect to the public HiveMQ broker over Secure WebSockets
   mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
   mqttClient.on('connect', () => {
     console.log('Connected to Whats Massage Real-time network!');
+    const statusDot = document.getElementById('mqtt-status-dot');
+    if (statusDot) {
+      statusDot.style.backgroundColor = '#00e676';
+      statusDot.title = 'Connected to HiveMQ network';
+    }
+
     // Subscribe to personal messages
     mqttClient.subscribe(`whats_massage/user/${cleanPhone}`, (err) => {
       if (!err) {
@@ -1744,6 +1755,22 @@ function connectMqtt(myPhone) {
         mqttClient.subscribe(`whats_massage/group/${c.id}`);
       }
     });
+  });
+
+  mqttClient.on('offline', () => {
+    const statusDot = document.getElementById('mqtt-status-dot');
+    if (statusDot) {
+      statusDot.style.backgroundColor = '#f44336';
+      statusDot.title = 'Offline from network';
+    }
+  });
+
+  mqttClient.on('close', () => {
+    const statusDot = document.getElementById('mqtt-status-dot');
+    if (statusDot) {
+      statusDot.style.backgroundColor = '#f44336';
+      statusDot.title = 'Network connection closed';
+    }
   });
 
   mqttClient.on('message', (topic, message) => {
@@ -1785,7 +1812,7 @@ function publishMqttMessage(contact, msg) {
   if (contact.type === 'group') {
     mqttClient.publish(`whats_massage/group/${contact.id}`, JSON.stringify(payload));
   } else {
-    const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
+    const cleanRecipientPhone = cleanPhoneNumber(contact.phone);
     mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify(payload));
   }
 }
@@ -1889,7 +1916,7 @@ function handleIncomingAvatarUpdate(payload) {
 function requestContactProfile(contactPhone) {
   const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
   if (myUser && mqttClient && mqttClient.connected) {
-    const cleanRecipientPhone = contactPhone.replace(/[^a-zA-Z0-9]/g, "");
+    const cleanRecipientPhone = cleanPhoneNumber(contactPhone);
     mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
       type: 'profile_request',
       senderPhone: myUser.phone,
@@ -1930,7 +1957,7 @@ function handleIncomingProfileRequest(payload) {
   saveToStorage();
 
   // Send profile details back to the requester
-  const cleanRecipientPhone = phone.replace(/[^a-zA-Z0-9]/g, "");
+  const cleanRecipientPhone = cleanPhoneNumber(phone);
   mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
     type: 'profile_response',
     senderPhone: myUser.phone,
