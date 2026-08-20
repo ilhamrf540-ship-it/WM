@@ -115,15 +115,23 @@ const appContainer = document.getElementById('app-container');
 const authTabSignin = document.getElementById('auth-tab-signin');
 const authTabSignup = document.getElementById('auth-tab-signup');
 const signinForm = document.getElementById('signin-form');
-const signupForm = document.getElementById('signup-form');
-const signinEmail = document.getElementById('signin-email');
+const signupContainer = document.getElementById('signup-container');
+const signinPhone = document.getElementById('signin-phone');
 const signinPassword = document.getElementById('signin-password');
-const signupName = document.getElementById('signup-name');
+const signupStepPhone = document.getElementById('signup-step-phone');
+const signupStepOtp = document.getElementById('signup-step-otp');
+const signupStepProfile = document.getElementById('signup-step-profile');
 const signupPhone = document.getElementById('signup-phone');
-const signupEmail = document.getElementById('signup-email');
+const btnSendOtp = document.getElementById('btn-send-otp');
+const signupOtpInput = document.getElementById('signup-otp-input');
+const btnVerifyOtp = document.getElementById('btn-verify-otp');
+const signupName = document.getElementById('signup-name');
 const signupPassword = document.getElementById('signup-password');
+const btnFinishSignup = document.getElementById('btn-finish-signup');
 const logoutBtn = document.getElementById('logout-btn');
 const copyInviteLinkBtn = document.getElementById('copy-invite-link-btn');
+const smsBanner = document.getElementById('sms-banner');
+const smsBannerMessage = document.getElementById('sms-banner-message');
 
 // New Chat Modal Elements
 const newChatBtn = document.getElementById('new-chat-btn');
@@ -999,7 +1007,7 @@ function setupEventListeners() {
     authTabSignup.style.color = 'var(--text-secondary)';
     authTabSignup.style.borderBottom = 'none';
     signinForm.classList.remove('hidden');
-    signupForm.classList.add('hidden');
+    signupContainer.classList.add('hidden');
   });
 
   authTabSignup.addEventListener('click', () => {
@@ -1007,49 +1015,105 @@ function setupEventListeners() {
     authTabSignup.style.borderBottom = '3px solid var(--accent-color)';
     authTabSignin.style.color = 'var(--text-secondary)';
     authTabSignin.style.borderBottom = 'none';
-    signupForm.classList.remove('hidden');
+    signupContainer.classList.remove('hidden');
     signinForm.classList.add('hidden');
+
+    // Reset steps
+    signupStepPhone.classList.remove('hidden');
+    signupStepOtp.classList.add('hidden');
+    signupStepProfile.classList.add('hidden');
   });
 
-  // Handle Registration / Sign Up
-  signupForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = signupName.value.trim();
-    const phone = signupPhone.value.trim();
-    const email = signupEmail.value.trim().toLowerCase();
-    const password = signupPassword.value;
+  // OTP Verification States
+  let generatedOtp = "";
+  let pendingPhone = "";
 
-    if (!name || !phone || !email || !password) return;
+  // Step 1: Click Kirim OTP
+  btnSendOtp.addEventListener('click', () => {
+    const phoneVal = signupPhone.value.trim();
+    if (!phoneVal) {
+      alert('Silakan masukkan nomor handphone terlebih dahulu.');
+      return;
+    }
 
-    // Save to user storage
-    const userAccount = { name, phone, email, password };
+    pendingPhone = phoneVal;
+    // Generate 4-digit code
+    generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
+
+    // Show simulated SMS banner
+    smsBannerMessage.textContent = `Whats Massage: Kode verifikasi Anda adalah ${generatedOtp}. Jangan bagikan kode ini kepada siapapun.`;
+    smsBanner.classList.remove('hidden');
+    smsBanner.style.top = '20px';
+
+    // Hide banner after 6 seconds
+    setTimeout(() => {
+      smsBanner.style.top = '-100px';
+      setTimeout(() => {
+        smsBanner.classList.add('hidden');
+      }, 500);
+    }, 6000);
+
+    // Go to Step 2
+    signupStepPhone.classList.add('hidden');
+    signupStepOtp.classList.remove('hidden');
+  });
+
+  // Step 2: Click Verifikasi Kode
+  btnVerifyOtp.addEventListener('click', () => {
+    const otpInputVal = signupOtpInput.value.trim();
+    if (otpInputVal === generatedOtp) {
+      // Go to Step 3
+      signupStepOtp.classList.add('hidden');
+      signupStepProfile.classList.remove('hidden');
+    } else {
+      alert('Kode OTP yang Anda masukkan salah. Silakan coba lagi.');
+    }
+  });
+
+  // Step 3: Complete registration
+  btnFinishSignup.addEventListener('click', () => {
+    const nameVal = signupName.value.trim();
+    const passwordVal = signupPassword.value;
+
+    if (!nameVal || !passwordVal) {
+      alert('Silakan lengkapi nama dan password Anda.');
+      return;
+    }
+
+    // Save user details
+    const userAccount = {
+      name: nameVal,
+      phone: pendingPhone,
+      password: passwordVal
+    };
+
     localStorage.setItem('wm_user_account', JSON.stringify(userAccount));
     localStorage.setItem('wm_logged_in', 'true');
 
-    // Reset input fields
-    signupName.value = '';
+    // Reset fields
     signupPhone.value = '';
-    signupEmail.value = '';
+    signupOtpInput.value = '';
+    signupName.value = '';
     signupPassword.value = '';
 
-    alert('Registration successful!');
+    alert('Registrasi akun berhasil!');
     checkAuthSession();
   });
 
-  // Handle Sign In / Login
+  // Handle Sign In / Login (Phone & Password)
   signinForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const email = signinEmail.value.trim().toLowerCase();
+    const phone = signinPhone.value.trim();
     const password = signinPassword.value;
 
     const storedUser = JSON.parse(localStorage.getItem('wm_user_account'));
-    if (storedUser && storedUser.email === email && storedUser.password === password) {
+    if (storedUser && storedUser.phone === phone && storedUser.password === password) {
       localStorage.setItem('wm_logged_in', 'true');
-      signinEmail.value = '';
+      signinPhone.value = '';
       signinPassword.value = '';
       checkAuthSession();
     } else {
-      alert('Invalid email address or password.');
+      alert('Nomor handphone atau password salah.');
     }
   });
 
