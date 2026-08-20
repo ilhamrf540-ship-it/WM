@@ -73,6 +73,7 @@ let pendingInvite = null;
 let isDarkMode = true;
 let localStream = null;
 let myStatusStories = [];
+let mqttClient = null;
 
 // Media Recording States
 let mediaRecorder = null;
@@ -296,6 +297,7 @@ function checkAuthSession() {
     const userAccount = JSON.parse(localStorage.getItem('wm_user_account'));
     if (userAccount) {
       document.getElementById('settings-profile-img').parentElement.nextElementSibling.textContent = userAccount.name;
+      connectMqtt(userAccount.phone);
     }
 
     // Process invite links if any
@@ -557,18 +559,25 @@ function sendMessage() {
   }
 
   // Add text message to local database
-  contact.messages.push({
+  const msgObj = {
     text: text,
     sender: 'sent',
     time: timeStr
-  });
+  };
+  contact.messages.push(msgObj);
+
+  // Publish to MQTT network
+  publishMqttMessage(contact, { text: text });
 
   messageInputField.value = '';
   updateInputIcon();
   renderMessages(contact);
   renderList();
   saveToStorage();
-  triggerAutoReply(contact);
+  
+  if (contact.id <= 4) {
+    triggerAutoReply(contact);
+  }
 }
 
 // Trigger simulated replies
@@ -637,10 +646,13 @@ function startRecording() {
             sender: 'sent',
             time: timeStr
           });
+          publishMqttMessage(contact, { type: 'audio', fileUrl: base64Audio });
           renderMessages(contact);
           renderList();
           saveToStorage();
-          triggerAutoReply(contact);
+          if (contact.id <= 4) {
+            triggerAutoReply(contact);
+          }
         }
       };
       reader.readAsDataURL(audioBlob);
@@ -694,11 +706,14 @@ function shareLocation() {
       sender: 'sent',
       time: timeStr
     });
+    publishMqttMessage(contact, { type: 'location', mapUrl: mapUrl });
 
     renderMessages(contact);
     renderList();
     saveToStorage();
-    triggerAutoReply(contact);
+    if (contact.id <= 4) {
+      triggerAutoReply(contact);
+    }
   }, err => {
     console.warn("Location access denied: ", err);
     // Fallback coordinates (Jakarta coordinates)
@@ -715,11 +730,14 @@ function shareLocation() {
       sender: 'sent',
       time: timeStr
     });
+    publishMqttMessage(contact, { type: 'location', mapUrl: mapUrl });
 
     renderMessages(contact);
     renderList();
     saveToStorage();
-    triggerAutoReply(contact);
+    if (contact.id <= 4) {
+      triggerAutoReply(contact);
+    }
   });
 }
 
@@ -749,6 +767,7 @@ function handleFileUpload(e) {
         sender: 'sent',
         time: timeStr
       });
+      publishMqttMessage(contact, { type: 'image', fileUrl: dataUrl, text: fileName });
     } else {
       contact.messages.push({
         type: 'document',
@@ -758,12 +777,15 @@ function handleFileUpload(e) {
         sender: 'sent',
         time: timeStr
       });
+      publishMqttMessage(contact, { type: 'document', fileUrl: dataUrl, fileName: fileName, fileSize: fileSize });
     }
 
     renderMessages(contact);
     renderList();
     saveToStorage();
-    triggerAutoReply(contact);
+    if (contact.id <= 4) {
+      triggerAutoReply(contact);
+    }
   };
 
   reader.readAsDataURL(file);
@@ -1415,26 +1437,180 @@ function sendSticker(url) {
     sender: 'sent',
     time: timeStr
   });
+  publishMqttMessage(contact, { type: 'sticker', fileUrl: url });
 
   renderMessages(contact);
   renderList();
   saveToStorage();
   emojiStickerPicker.classList.add('hidden'); // Close picker
-  triggerAutoReply(contact);
+  if (contact.id <= 4) {
+    triggerAutoReply(contact);
+  }
+}
+
+// Connect to Public MQTT Broker for Real-time Messaging
+function connectMqtt(myPhone) {
+  if (mqttClient) {
+    mqttClient.end();
+  }
+
+  // Clean phone number to make a valid topic name (alphanumeric only)
+  const cleanPhone = myPhone.replace(/[^a-zA-Z0-9]/g, "");
+  
+  // Connect to the free EMQX public broker over Secure WebSockets
+  mqttClient = mqtt.connect('wss://broker.emqx.io:8086/mqtt');
+
+  mqttClient.on('connect', () => {
+    console.log('Connected to Whats Massage Real-time network!');
+    // Subscribe to personal messages
+    mqttClient.subscribe(`whats_massage/user/${cleanPhone}`, (err) => {
+      if (!err) {
+        console.log(`Subscribed to topic: whats_massage/user/${cleanPhone}`);
+      }
+    });
+
+    // Subscribe to all group chats I am in
+    contacts.forEach(c => {
+      if (c.type === 'group') {
+        mqttClient.subscribe(`whats_massage/group/${c.id}`);
+      }
+    });
+  });
+
+  mqttClient.on('message', (topic, message) => {
+    try {
+      const payload = JSON.parse(message.toString());
+      
+      if (topic.startsWith('whats_massage/group/')) {
+        // Handle group message
+        const groupId = parseInt(topic.split('/').pop());
+        const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+        if (myUser && payload.senderPhone !== myUser.phone) {
+          handleIncomingGroupMessage(groupId, payload);
+        }
+      } else {
+        // Handle direct message
+        handleIncomingMqttMessage(payload);
+      }
+    } catch (e) {
+      console.warn("Failed to parse incoming real-time message:", e);
+    }
+  });
+}
+
+// Publish MQTT payload to network
+function publishMqttMessage(contact, msg) {
+  if (!mqttClient || !mqttClient.connected) return;
+
+  const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (!myUser) return;
+
+  const payload = {
+    senderPhone: myUser.phone,
+    senderName: myUser.name,
+    ...msg,
+    time: msg.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  };
+
+  if (contact.type === 'group') {
+    mqttClient.publish(`whats_massage/group/${contact.id}`, JSON.stringify(payload));
+  } else {
+    const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
+    mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify(payload));
+  }
+}
+
+// Handle Incoming Direct Messages
+function handleIncomingMqttMessage(payload) {
+  const phone = payload.senderPhone;
+  const name = payload.senderName;
+
+  let contact = contacts.find(c => c.phone === phone);
+  if (!contact) {
+    const newId = contacts.length > 0 ? Math.max(...contacts.map(c => c.id)) + 1 : 1;
+    contact = {
+      id: newId,
+      name: name,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      phone: phone,
+      statusMessage: "Hey there! I am using Whats Massage.",
+      online: true,
+      unreadCount: 0,
+      messages: [],
+      statusStories: []
+    };
+    contacts.push(contact);
+  }
+
+  contact.messages.push({
+    text: payload.text,
+    sender: 'received',
+    time: payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    type: payload.type,
+    fileUrl: payload.fileUrl,
+    fileName: payload.fileName,
+    fileSize: payload.fileSize,
+    mapUrl: payload.mapUrl
+  });
+
+  if (currentChatId !== contact.id) {
+    contact.unreadCount++;
+  } else {
+    renderMessages(contact);
+  }
+
+  renderList();
+  saveToStorage();
+  playNotificationSound();
+}
+
+// Handle Incoming Group Messages
+function handleIncomingGroupMessage(groupId, payload) {
+  let groupContact = contacts.find(c => c.id === groupId);
+  if (!groupContact) return;
+
+  groupContact.messages.push({
+    text: `[${payload.senderName}]: ${payload.text || ""}`,
+    sender: 'received',
+    time: payload.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    type: payload.type,
+    fileUrl: payload.fileUrl,
+    fileName: payload.fileName,
+    fileSize: payload.fileSize,
+    mapUrl: payload.mapUrl
+  });
+
+  if (currentChatId !== groupContact.id) {
+    groupContact.unreadCount++;
+  } else {
+    renderMessages(groupContact);
+  }
+
+  renderList();
+  saveToStorage();
+  playNotificationSound();
+}
+
+function playNotificationSound() {
+  try {
+    const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2357/2357-84.wav');
+    audio.play();
+  } catch (err) {
+    console.log("Audio play blocked by browser.");
+  }
 }
 
 // Handle pending invite parameter on successful login/registration
 function handlePendingInvite() {
   if (!pendingInvite) return;
 
-  // Check if contact already exists
   let contact = contacts.find(c => c.phone === pendingInvite.phone);
   if (!contact) {
     const newId = contacts.length > 0 ? Math.max(...contacts.map(c => c.id)) + 1 : 1;
     contact = {
       id: newId,
       name: pendingInvite.name,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80', // default avatar
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
       phone: pendingInvite.phone,
       statusMessage: "Hey! Let's chat on Whats Massage.",
       online: true,
@@ -1449,10 +1625,7 @@ function handlePendingInvite() {
     renderList();
   }
 
-  // Open chat room immediately
   selectChat(contact.id);
-
-  // Clear query parameters from address bar silently
   window.history.replaceState({}, document.title, window.location.pathname);
   pendingInvite = null;
 }
