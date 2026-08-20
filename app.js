@@ -296,7 +296,8 @@ function checkAuthSession() {
     // Load current user profile details
     const userAccount = JSON.parse(localStorage.getItem('wm_user_account'));
     if (userAccount) {
-      document.getElementById('settings-profile-img').parentElement.nextElementSibling.textContent = userAccount.name;
+      document.getElementById('settings-profile-name').textContent = userAccount.name;
+      document.getElementById('settings-profile-phone').textContent = userAccount.phone;
       connectMqtt(userAccount.phone);
     }
 
@@ -346,6 +347,8 @@ function renderList() {
       const isActive = currentChatId === contact.id ? 'active' : '';
       const muteIcon = contact.muted ? `<i class="fa-solid fa-volume-xmark" style="color: var(--text-secondary); margin-left: 6px; font-size: 12px;"></i>` : '';
 
+      const phoneLabel = (contact.type !== 'group' && contact.phone) ? `<span style="font-size: 11px; font-weight: normal; color: var(--text-secondary); margin-top: 2px; display: block;">${contact.phone}</span>` : '';
+
       const item = document.createElement('div');
       item.className = `list-item ${isActive}`;
       item.onclick = () => selectChat(contact.id);
@@ -356,7 +359,10 @@ function renderList() {
         </div>
         <div class="item-details">
           <div class="item-header">
-            <span class="item-name">${contact.name}${muteIcon}</span>
+            <span class="item-name" style="display: flex; flex-direction: column;">
+              <span>${contact.name}${muteIcon}</span>
+              ${phoneLabel}
+            </span>
             <span class="item-time">${timeStr}</span>
           </div>
           <div class="item-subcontent">
@@ -440,7 +446,7 @@ function selectChat(id) {
   // Update header details
   activeChatAvatar.src = contact.avatar;
   activeChatName.textContent = contact.name;
-  activeChatStatus.textContent = contact.online ? 'online' : 'offline';
+  activeChatStatus.textContent = contact.type === 'group' ? 'group chat' : `${contact.online ? 'online' : 'offline'} • ${contact.phone}`;
 
   // Render messages
   renderMessages(contact);
@@ -1457,8 +1463,8 @@ function connectMqtt(myPhone) {
   // Clean phone number to make a valid topic name (alphanumeric only)
   const cleanPhone = myPhone.replace(/[^a-zA-Z0-9]/g, "");
   
-  // Connect to the free EMQX public broker over Secure WebSockets
-  mqttClient = mqtt.connect('wss://broker.emqx.io:8086/mqtt');
+  // Connect to the public HiveMQ broker over Secure WebSockets
+  mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
   mqttClient.on('connect', () => {
     console.log('Connected to Whats Massage Real-time network!');
