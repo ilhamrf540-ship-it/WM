@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whats Massage - Web Messenger</title>
+  <!-- FontAwesome for Premium Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- SPLASH OPENING SCREEN -->
+  <div id="splash-screen" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #0b141a; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; transition: opacity 0.5s ease;">
+    <img src="logo.png" alt="Whats Massage Logo" style="width: 220px; height: 330px; margin-bottom: 24px; object-fit: contain;">
+    <h2 style="font-weight: 700; color: #00a884; font-size: 24px; letter-spacing: 1px;">Whats Massage</h2>
+    <p style="font-size: 12px; color: #8696a0; margin-top: 100px; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-lock" style="color: #00a884;"></i> End-to-end encrypted</p>
+  </div>
+
+  <!-- AUTHENTICATION CONTAINER (LOGIN / REGISTER) -->
+  <div id="auth-container" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #0b141a; display: flex; align-items: center; justify-content: center; z-index: 900;">
+    <div style="background-color: var(--bg-sidebar-header); border: 1px solid var(--border-color); border-radius: 12px; width: 90%; max-width: 420px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <img src="logo.png" alt="Logo" style="width: 80px; height: 120px; object-fit: contain; margin-bottom: 12px;">
+        <h2 style="font-weight: 700; color: var(--accent-color); font-size: 22px;">Whats Massage</h2>
+      </div>
+
+      <!-- Tabs -->
+      <div style="display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 24px;">
+        <button id="auth-tab-signin" style="flex: 1; background: none; border: none; padding: 10px; color: var(--accent-color); font-weight: 600; cursor: pointer; border-bottom: 3px solid var(--accent-color); font-size: 15px;">Sign In</button>
+        <button id="auth-tab-signup" style="flex: 1; background: none; border: none; padding: 10px; color: var(--text-secondary); font-weight: 600; cursor: pointer; font-size: 15px;">Sign Up</button>
+      </div>
+
+      <!-- Sign In Form -->
+      <form id="signin-form" style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Email Address</label>
+          <input type="email" id="signin-email" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 10px 14px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="name@email.com" required>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Password</label>
+          <input type="password" id="signin-password" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 10px 14px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="••••••••" required>
+        </div>
+        <button type="submit" style="background-color: var(--accent-color); border: none; color: white; padding: 12px; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 10px; transition: background-color 0.2s;">Sign In</button>
+      </form>
+
+      <!-- Sign Up Form (Hidden by default) -->
+      <form id="signup-form" class="hidden" style="display: flex; flex-direction: column; gap: 16px;">
+        <div>
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Full Name</label>
+          <input type="text" id="signup-name" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="John Doe" required>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Phone Number</label>
+          <input type="text" id="signup-phone" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="+62 812-xxxx-xxxx" required>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Email Address</label>
+          <input type="email" id="signup-email" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="name@email.com" required>
+        </div>
+        <div>
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Password</label>
+          <input type="password" id="signup-password" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="••••••••" required>
+        </div>
+        <button type="submit" style="background-color: var(--accent-color); border: none; color: white; padding: 12px; border-radius: 6px; font-weight: 600; font-size: 15px; cursor: pointer; margin-top: 10px; transition: background-color 0.2s;">Sign Up / Register</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app-container" class="hidden">
+    <!-- LEFT SIDEBAR: Chats & Status -->
+    <aside class="sidebar">
+      <header class="sidebar-header">
+        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="My Profile" class="user-profile-img" id="my-profile-btn" title="Profile Info">
+        <span style="font-weight: 700; font-size: 18px; color: var(--accent-color); margin-left: 10px; flex: 1;">Whats Massage</span>
+        <div class="header-actions">
+          <button class="btn-icon" id="theme-toggle-btn" title="Toggle Theme">
+            <i class="fa-solid fa-circle-half-stroke"></i>
+          </button>
+          <button class="btn-icon" id="new-chat-btn" title="New Chat">
+            <i class="fa-solid fa-message"></i>
+          </button>
+          <button class="btn-icon" title="Menu">
+            <i class="fa-solid fa-ellipsis-vertical"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Search -->
+      <div class="search-container">
+        <div class="search-wrapper">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="search-input" class="search-input" placeholder="Search or start new chat">
+        </div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <nav class="sidebar-tabs">
+        <button class="tab-btn active" id="tab-chats">CHATS</button>
+        <button class="tab-btn" id="tab-status">STATUS</button>
+      </nav>
+
+      <!-- Scrollable List -->
+      <div class="chat-list custom-scroll" id="sidebar-list">
+        <!-- Dynamic chat items or status items will be loaded here by JavaScript -->
+      </div>
+
+      <!-- Settings Panel Slide-over -->
+      <div class="settings-panel hidden" id="settings-panel" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-sidebar); display: flex; flex-direction: column; z-index: 50;">
+        <header class="settings-header" style="height: 60px; background-color: var(--bg-sidebar-header); display: flex; align-items: center; padding: 10px 16px; gap: 16px; border-bottom: 1px solid var(--border-color);">
+          <button class="btn-icon" id="close-settings-btn" title="Back"><i class="fa-solid fa-arrow-left"></i></button>
+          <span style="font-weight: 600; font-size: 16px;">Settings</span>
+        </header>
+        <div class="settings-body custom-scroll" style="flex: 1; overflow-y: auto; padding: 20px;">
+          <!-- Profile Pic Section -->
+          <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; position: relative;">
+            <div class="profile-pic-container" id="profile-pic-change-btn" style="position: relative; cursor: pointer;">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="My Profile" class="user-profile-img" style="width: 100px; height: 100px;" id="settings-profile-img">
+              <div class="profile-pic-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 50%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s;">
+                <i class="fa-solid fa-camera" style="color: white; font-size: 20px;"></i>
+              </div>
+            </div>
+            <div style="font-weight: 600; margin-top: 12px; font-size: 15px;">Your Profile Photo</div>
+            <p style="font-size: 12px; color: var(--text-secondary); text-align: center; margin-top: 4px;">Click photo to upload new picture</p>
+            <input type="file" id="profile-pic-input" class="hidden" accept="image/*">
+          </div>
+
+          <!-- Chat Wallpapers -->
+          <div class="info-section">
+            <div class="info-section-title">Chat Background</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px;">
+              <div class="bg-preset" style="background-color: #0b141a; height: 40px; border-radius: 4px; border: 2px solid var(--accent-color); cursor: pointer;" data-color="#0b141a" title="Default Dark"></div>
+              <div class="bg-preset" style="background-color: #0d1e15; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#0d1e15" title="Dark Green"></div>
+              <div class="bg-preset" style="background-color: #2b1810; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#2b1810" title="Dark Mocha"></div>
+              <div class="bg-preset" style="background-color: #1a1a2e; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#1a1a2e" title="Midnight Blue"></div>
+              <div class="bg-preset" style="background-color: #eae6df; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#eae6df" title="Default Light"></div>
+              <div class="bg-preset" style="background-color: #fce4ec; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#fce4ec" title="Soft Pink"></div>
+              <div class="bg-preset" style="background-color: #e8f5e9; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#e8f5e9" title="Soft Green"></div>
+              <div class="bg-preset" style="background-color: #e3f2fd; height: 40px; border-radius: 4px; border: 1px solid var(--border-color); cursor: pointer;" data-color="#e3f2fd" title="Soft Blue"></div>
+            </div>
+            
+            <div style="margin-top: 16px;">
+              <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;">Custom Wallpaper Image URL</div>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="custom-bg-url" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 6px 12px; font-size: 13px; flex: 1;" placeholder="Paste image URL (https://...)">
+                <button id="apply-custom-bg-btn" style="background-color: var(--accent-color); border: none; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">Apply</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Create Group Settings -->
+          <div class="info-section">
+            <button id="open-group-modal-btn" style="background-color: var(--accent-color); border: none; color: white; width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fa-solid fa-users"></i> Create Group Chat</button>
+          </div>
+
+          <!-- Account Settings (Log out) -->
+          <div class="info-section">
+            <button id="logout-btn" style="background-color: #f44336; border: none; color: white; width: 100%; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fa-solid fa-right-from-bracket"></i> Log Out Account</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CHAT WINDOW -->
+    <main class="chat-window">
+      <!-- Empty State -->
+      <div class="chat-empty-state" id="chat-empty-state">
+        <i class="fa-brands fa-whatsapp"></i>
+        <h1>Whats Massage for Web</h1>
+        <p>Send and receive messages without keeping your phone online. Use Whats Massage on up to 4 linked devices and 1 phone at the same time.</p>
+        <p style="margin-top: 15px; font-size: 12px; color: var(--text-muted);"><i class="fa-solid fa-lock"></i> End-to-end encrypted</p>
+      </div>
+
+      <!-- Active Chat State -->
+      <div class="chat-active-container hidden" style="display: flex; flex-direction: column; height: 100%;" id="chat-active-container">
+        <!-- Header -->
+        <header class="chat-header">
+          <div class="chat-header-info" id="chat-header-details">
+            <img src="" alt="" class="chat-header-avatar" id="active-chat-avatar">
+            <div class="chat-header-text">
+              <div class="chat-header-name" id="active-chat-name">Contact Name</div>
+              <div class="chat-header-status" id="active-chat-status">online</div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button class="btn-icon" id="call-audio-btn" title="Voice Call"><i class="fa-solid fa-phone"></i></button>
+            <button class="btn-icon" id="call-video-btn" title="Video Call"><i class="fa-solid fa-video"></i></button>
+            <button class="btn-icon" id="info-toggle-btn" title="Contact Info"><i class="fa-solid fa-circle-info"></i></button>
+          </div>
+        </header>
+
+        <!-- Messages Feed -->
+        <div class="chat-body custom-scroll">
+          <div class="messages-container" id="messages-feed">
+            <!-- Messages go here -->
+          </div>
+        </div>
+
+        <!-- EMOJI & STICKER PICKER PANEL -->
+        <div id="emoji-sticker-picker" class="hidden" style="background-color: var(--bg-sidebar-header); border-top: 1px solid var(--border-color); height: 250px; display: flex; flex-direction: column; z-index: 10;">
+          <div style="display: flex; border-bottom: 1px solid var(--border-color); background-color: var(--bg-chat-header);">
+            <button id="picker-tab-emojis" style="flex: 1; background: none; border: none; padding: 10px; color: var(--accent-color); font-weight: 600; cursor: pointer; border-bottom: 3px solid var(--accent-color); display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fa-regular fa-face-smile" style="font-size: 18px;"></i> Emojis</button>
+            <button id="picker-tab-stickers" style="flex: 1; background: none; border: none; padding: 10px; color: var(--text-secondary); font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;"><i class="fa-regular fa-image" style="font-size: 18px;"></i> Stickers</button>
+          </div>
+          <!-- Emojis Grid -->
+          <div id="picker-emojis-container" class="custom-scroll" style="flex: 1; padding: 12px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 12px; overflow-y: auto; justify-items: center; align-content: start; font-size: 24px;">
+            <!-- Loaded dynamically by JS -->
+          </div>
+          <!-- Stickers Grid -->
+          <div id="picker-stickers-container" class="custom-scroll hidden" style="flex: 1; padding: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; overflow-y: auto; justify-items: center; align-content: start;">
+            <!-- Loaded dynamically by JS -->
+          </div>
+        </div>
+
+        <!-- Message Input Footer -->
+        <footer class="chat-footer">
+          <button class="btn-icon" id="emoji-btn" title="Emojis"><i class="fa-regular fa-face-smile"></i></button>
+          
+          <!-- Attachment Dropdown Container -->
+          <div style="position: relative; display: inline-block;">
+            <button class="btn-icon" id="attach-btn" title="Attach"><i class="fa-solid fa-paperclip"></i></button>
+            <div id="attach-dropdown" class="hidden" style="position: absolute; bottom: 50px; left: 0; background-color: var(--bg-sidebar-header); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 0; width: 180px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 20; display: flex; flex-direction: column;">
+              <button id="attach-file-opt" style="background: none; border: none; color: var(--text-primary); padding: 8px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 14px; width: 100%; transition: background-color 0.2s;"><i class="fa-solid fa-file" style="color: #2196f3; width: 16px;"></i> Document / File</button>
+              <button id="attach-location-opt" style="background: none; border: none; color: var(--text-primary); padding: 8px 16px; text-align: left; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 14px; width: 100%; transition: background-color 0.2s;"><i class="fa-solid fa-location-dot" style="color: #4caf50; width: 16px;"></i> Share Location</button>
+            </div>
+          </div>
+          <input type="file" id="file-input" class="hidden">
+          <input type="file" id="status-pic-input" class="hidden" accept="image/*">
+
+          <div class="input-container">
+            <input type="text" class="message-input" id="message-input-field" placeholder="Type a message">
+          </div>
+          <button class="btn-icon" id="send-message-btn" title="Send" style="color: var(--accent-color);"><i class="fa-solid fa-microphone" id="send-icon"></i></button>
+        </footer>
+      </div>
+    </main>
+
+    <!-- RIGHT CONTACT INFO PANEL -->
+    <aside class="info-panel hidden" id="contact-info-panel">
+      <header class="info-panel-header">
+        <button class="btn-icon" id="close-info-btn"><i class="fa-solid fa-xmark"></i></button>
+        <span style="font-weight: 600;">Contact Info</span>
+      </header>
+      <div class="info-panel-body custom-scroll" style="flex: 1; overflow-y: auto;">
+        <img src="" alt="Contact Profile Picture" class="info-avatar" id="info-panel-avatar">
+        <h2 class="info-name" id="info-panel-name">Contact Name</h2>
+        <p class="info-phone" id="info-panel-phone">+62 812-3456-7890</p>
+        
+        <div class="info-section">
+          <div class="info-section-title">Status</div>
+          <div class="info-section-content" id="info-panel-status-msg">Hey there! I am using Whats Massage.</div>
+        </div>
+
+        <div class="info-section">
+          <div class="info-section-title">Media, Links and Docs</div>
+          <div style="display: flex; gap: 8px; margin-top: 8px; overflow-x: auto; padding-bottom: 8px;">
+            <div style="width: 60px; height: 60px; background-color: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fa-regular fa-image" style="color: var(--text-secondary);"></i></div>
+            <div style="width: 60px; height: 60px; background-color: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fa-regular fa-file-pdf" style="color: var(--text-secondary);"></i></div>
+            <div style="width: 60px; height: 60px; background-color: var(--border-color); border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-link" style="color: var(--text-secondary);"></i></div>
+          </div>
+        </div>
+
+        <div class="info-section" style="cursor: pointer;" id="info-mute-btn">
+          <div class="info-section-content" style="color: #ff9800; display: flex; align-items: center; gap: 12px;"><i class="fa-solid fa-volume-xmark"></i> <span id="info-mute-label">Mute Notifications</span></div>
+        </div>
+
+        <div class="info-section" style="cursor: pointer;" id="info-clear-btn">
+          <div class="info-section-content" style="color: #f44336; display: flex; align-items: center; gap: 12px;"><i class="fa-solid fa-trash-can"></i> Clear Messages</div>
+        </div>
+
+        <div class="info-section" style="cursor: pointer;" id="info-delete-btn">
+          <div class="info-section-content" style="color: #f44336; display: flex; align-items: center; gap: 12px;"><i class="fa-solid fa-user-minus"></i> Delete Chat</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CALL INTERFACE OVERLAY -->
+    <div class="call-overlay hidden" id="call-overlay">
+      <!-- Local camera stream inside call overlay -->
+      <div id="video-stream-container" class="hidden" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background-color: #000;">
+        <video id="local-video" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
+      </div>
+
+      <div style="text-align: center; z-index: 10;">
+        <div id="call-type-icon" style="font-size: 28px; color: var(--accent-color); margin-bottom: 24px;"><i class="fa-solid fa-phone"></i></div>
+        <img src="" alt="Calling Avatar" class="call-avatar" id="call-avatar">
+        <h2 class="call-name" id="call-name">Contact Name</h2>
+        <p class="call-status" id="call-status-label">Calling...</p>
+      </div>
+      <div class="call-actions" style="z-index: 10;">
+        <button class="btn-icon" style="background-color: rgba(255,255,255,0.2); color: white;" id="call-mic-btn" title="Mute Mic"><i class="fa-solid fa-microphone"></i></button>
+        <button class="btn-icon" style="background-color: rgba(255,255,255,0.2); color: white;" id="call-video-toggle-btn" title="Toggle Video"><i class="fa-solid fa-video"></i></button>
+        <button class="btn-call-end" id="btn-call-end" title="End Call"><i class="fa-solid fa-phone-slash"></i></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS VIEWER OVERLAY -->
+  <div class="story-overlay hidden" id="story-overlay">
+    <div class="story-container">
+      <div class="story-progress-bar" id="story-progress-container">
+        <!-- Segments loaded dynamically -->
+      </div>
+      <header class="story-header">
+        <img src="" alt="" id="story-user-avatar">
+        <div>
+          <div style="font-weight: 600; font-size: 14px;" id="story-user-name">Name</div>
+          <div style="font-size: 11px; opacity: 0.8;" id="story-time">Just now</div>
+        </div>
+        <button class="btn-icon" id="close-story-btn" style="margin-left: auto; color: white;"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <img src="" alt="Story Image" class="story-image" id="story-content-image">
+      <div class="story-caption" id="story-caption-text">Caption here</div>
+    </div>
+  </div>
+
+  <!-- NEW CONTACT MODAL -->
+  <div id="new-contact-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 150;">
+    <div style="background-color: var(--bg-sidebar-header); border: 1px solid var(--border-color); border-radius: 8px; width: 90%; max-width: 400px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+      <h3 style="margin-bottom: 16px; font-size: 18px; font-weight: 600; color: var(--text-primary);">Add New Contact</h3>
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Contact Name</label>
+        <input type="text" id="new-contact-name" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="Enter name">
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Phone Number</label>
+        <input type="text" id="new-contact-phone" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="+62 812-xxxx-xxxx">
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 12px;">
+        <button id="cancel-new-contact-btn" style="background: none; border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">Cancel</button>
+        <button id="save-new-contact-btn" style="background-color: var(--accent-color); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">Add Contact</button>
+      </div>
+    </div>
+  </div>
+  <!-- CREATE GROUP MODAL -->
+  <div id="group-create-modal" class="hidden" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 160;">
+    <div style="background-color: var(--bg-sidebar-header); border: 1px solid var(--border-color); border-radius: 8px; width: 90%; max-width: 400px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 80vh;">
+      <h3 style="margin-bottom: 16px; font-size: 18px; font-weight: 600; color: var(--text-primary); margin-top: 0;">Create Group Chat</h3>
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Group Name</label>
+        <input type="text" id="new-group-name" class="search-input" style="background-color: var(--input-bg); border-radius: 6px; padding: 8px 12px; width: 100%; border: 1px solid var(--border-color); color: var(--text-primary); outline: none;" placeholder="Enter group subject">
+      </div>
+      <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 8px;">Select Participants</label>
+      <div id="group-contacts-list" class="custom-scroll" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; max-height: 200px;">
+        <!-- Checked contacts dynamically loaded -->
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 12px;">
+        <button id="cancel-group-btn" style="background: none; border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">Cancel</button>
+        <button id="save-group-btn" style="background-color: var(--accent-color); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">Create Group</button>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
