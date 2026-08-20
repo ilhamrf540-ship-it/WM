@@ -1419,6 +1419,7 @@ function showCallToast(message) {
 let callStatusTimer = null;
 let activeCallRecipientPhone = null;
 let activeCallType = null;
+let localVideoFrameTimer = null;
 
 function startCall(type) {
   const contact = contacts.find(c => c.id === currentChatId);
@@ -1533,6 +1534,10 @@ function endCall() {
 
 function endCallLocally() {
   clearTimeout(callStatusTimer);
+  if (localVideoFrameTimer) {
+    clearInterval(localVideoFrameTimer);
+    localVideoFrameTimer = null;
+  }
   callOverlay.classList.add('hidden');
   callStatusLabel.style.color = "";
   
@@ -1542,8 +1547,40 @@ function endCallLocally() {
   }
   localVideo.srcObject = null;
   remoteVideoPlaceholder.src = "";
+  remoteVideoPlaceholder.style.filter = "brightness(0.65) blur(4px)"; // Reset filter
   activeCallRecipientPhone = null;
   activeCallType = null;
+}
+
+// Low-resolution camera frames capturing and sending over MQTT (max 3 fps to stay within payload limits)
+function startCapturingAndSendingFrames() {
+  if (localVideoFrameTimer) clearInterval(localVideoFrameTimer);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 120;
+  canvas.height = 90;
+  const ctx = canvas.getContext('2d');
+
+  localVideoFrameTimer = setInterval(() => {
+    if (localStream && mqttClient && mqttClient.connected && activeCallRecipientPhone) {
+      try {
+        ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Low-res JPEG compression (50% quality)
+
+        const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+        if (myUser) {
+          const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
+          mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+            type: 'call_frame',
+            senderPhone: myUser.phone,
+            frame: dataUrl
+          }));
+        }
+      } catch (e) {
+        console.warn("Error capturing/sending frame: ", e);
+      }
+    }
+  }, 333); // 3 frames per second
 }
 
 function startLocalStream(type) {
@@ -1556,6 +1593,9 @@ function startLocalStream(type) {
       if (type === 'video') {
         localVideo.srcObject = stream;
         videoStreamContainer.classList.remove('hidden');
+        
+        // Start transmitting live camera frames to opponent
+        startCapturingAndSendingFrames();
       }
       callStatusLabel.textContent = "Connected (Live)";
       callStatusLabel.style.color = "#00e676";
@@ -1634,6 +1674,14 @@ function handleIncomingCallEnd(payload) {
   if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     showCallToast("Panggilan diakhiri oleh lawan bicara.");
     endCallLocally();
+  }
+}
+
+// Render incoming real-time video frames from the opponent
+function handleIncomingCallFrame(payload) {
+  if (activeCallRecipientPhone && cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
+    remoteVideoPlaceholder.src = payload.frame;
+    remoteVideoPlaceholder.style.filter = "brightness(0.95)"; // Clear blur during active frames
   }
 }
 
@@ -1824,6 +1872,10 @@ function publishMqttMessage(contact, msg) {
 
 // Handle Incoming Direct Messages
 function handleIncomingMqttMessage(payload) {
+  if (payload.type === 'call_frame') {
+    handleIncomingCallFrame(payload);
+    return;
+  }
   if (payload.type === 'avatar_update') {
     handleIncomingAvatarUpdate(payload);
     return;
