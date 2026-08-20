@@ -14,7 +14,7 @@ echo ==========================================
 .\mingit\cmd\git.exe add .
 
 :: Commit files
-.\mingit\cmd\git.exe commit -m "Initial commit - Whats Massage app features"
+.\mingit\cmd\git.exe commit -m "Configure HiveMQ broker and display phone numbers in user profiles"
 
 :: Rename branch to main
 .\mingit\cmd\git.exe branch -M main
