@@ -1,0 +1,3 @@
+# Exclude Git binary files
+mingit/
+git-setup.exe
