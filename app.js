@@ -1541,6 +1541,12 @@ function endCallLocally() {
   callOverlay.classList.add('hidden');
   callStatusLabel.style.color = "";
   
+  // Show UI elements again
+  callAvatar.classList.remove('hidden');
+  callName.classList.remove('hidden');
+  callStatusLabel.classList.remove('hidden');
+  callTypeIcon.classList.remove('hidden');
+  
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
@@ -1593,6 +1599,12 @@ function startLocalStream(type) {
       if (type === 'video') {
         localVideo.srcObject = stream;
         videoStreamContainer.classList.remove('hidden');
+        
+        // Hide overlay elements that block the video stream
+        callAvatar.classList.add('hidden');
+        callName.classList.add('hidden');
+        callStatusLabel.classList.add('hidden');
+        callTypeIcon.classList.add('hidden');
         
         // Start transmitting live camera frames to opponent
         startCapturingAndSendingFrames();
