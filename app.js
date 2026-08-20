@@ -1384,6 +1384,31 @@ function cleanPhoneNumber(num) {
   return num.replace(/[^a-zA-Z0-9]/g, "");
 }
 
+// Display simple floating toast notification for call events
+function showCallToast(message) {
+  console.log("Call Toast:", message);
+  const toast = document.createElement('div');
+  toast.style.position = 'fixed';
+  toast.style.bottom = '20px';
+  toast.style.right = '20px';
+  toast.style.backgroundColor = '#1f2c34';
+  toast.style.color = '#e9edef';
+  toast.style.padding = '12px 24px';
+  toast.style.borderRadius = '8px';
+  toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.5)';
+  toast.style.borderLeft = '4px solid var(--accent-color)';
+  toast.style.zIndex = '3000';
+  toast.style.fontSize = '13px';
+  toast.style.fontWeight = '600';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transition = 'opacity 0.5s ease';
+    setTimeout(() => toast.remove(), 500);
+  }, 4000);
+}
+
 // Active Calling Simulator with MQTT Signaling
 let callStatusTimer = null;
 let activeCallRecipientPhone = null;
@@ -1392,6 +1417,12 @@ let activeCallType = null;
 function startCall(type) {
   const contact = contacts.find(c => c.id === currentChatId);
   if (!contact) return;
+
+  // Safety network check
+  if (!mqttClient || !mqttClient.connected) {
+    alert("Koneksi jaringan Whats Massage terputus. Panggilan tidak dapat dilakukan.");
+    return;
+  }
 
   activeCallRecipientPhone = contact.phone;
   activeCallType = type;
@@ -1418,10 +1449,12 @@ function startCall(type) {
   callStatusLabel.textContent = "Calling...";
   callStatusLabel.style.color = "";
 
+  const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
+  showCallToast(`Menghubungi ${contact.name} (${cleanRecipientPhone})...`);
+
   // Send invitation via MQTT
   const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
   if (myUser) {
-    const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
     mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
       type: 'call_invite',
       callType: type,
@@ -1436,6 +1469,11 @@ function acceptIncomingCall() {
   if (!activeCallRecipientPhone) return;
 
   const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (!mqttClient || !mqttClient.connected) {
+    alert("Koneksi jaringan terputus. Panggilan tidak dapat diterima.");
+    endCallLocally();
+    return;
+  }
   if (myUser) {
     const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
     mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
@@ -1459,7 +1497,7 @@ function rejectIncomingCall() {
   if (!activeCallRecipientPhone) return;
 
   const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
-  if (myUser) {
+  if (myUser && mqttClient && mqttClient.connected) {
     const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
     mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
       type: 'call_decline',
@@ -1474,7 +1512,7 @@ function endCall() {
   // Send end call signal to the other party
   if (activeCallRecipientPhone) {
     const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
-    if (myUser) {
+    if (myUser && mqttClient && mqttClient.connected) {
       const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
       mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
         type: 'call_end',
@@ -1530,7 +1568,7 @@ function handleIncomingCallInvite(payload) {
   // If already in a call, auto-decline
   if (activeCallRecipientPhone) {
     const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
-    if (myUser) {
+    if (myUser && mqttClient && mqttClient.connected) {
       const cleanRecipientPhone = payload.senderPhone.replace(/[^a-zA-Z0-9]/g, "");
       mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
         type: 'call_decline',
@@ -1539,6 +1577,8 @@ function handleIncomingCallInvite(payload) {
     }
     return;
   }
+
+  showCallToast(`Menerima panggilan dari ${payload.senderName} (${payload.senderPhone})...`);
 
   activeCallRecipientPhone = payload.senderPhone;
   activeCallType = payload.callType;
@@ -1566,12 +1606,14 @@ function handleIncomingCallInvite(payload) {
 
 function handleIncomingCallAccept(payload) {
   if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
+    showCallToast("Panggilan diterima!");
     startLocalStream(activeCallType);
   }
 }
 
 function handleIncomingCallDecline(payload) {
   if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
+    showCallToast("Panggilan ditolak oleh penerima.");
     callStatusLabel.textContent = "Call Declined";
     callStatusLabel.style.color = "#f44336";
     setTimeout(endCallLocally, 2000);
@@ -1580,6 +1622,7 @@ function handleIncomingCallDecline(payload) {
 
 function handleIncomingCallEnd(payload) {
   if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
+    showCallToast("Panggilan diakhiri oleh lawan bicara.");
     endCallLocally();
   }
 }
