@@ -188,6 +188,8 @@ const callAvatar = document.getElementById('call-avatar');
 const callName = document.getElementById('call-name');
 const callStatusLabel = document.getElementById('call-status-label');
 const btnCallEnd = document.getElementById('btn-call-end');
+const btnCallAccept = document.getElementById('btn-call-accept');
+const btnCallDecline = document.getElementById('btn-call-decline');
 const callTypeIcon = document.getElementById('call-type-icon');
 const videoStreamContainer = document.getElementById('video-stream-container');
 const localVideo = document.getElementById('local-video');
@@ -536,14 +538,15 @@ function renderMessages(contact) {
         </div>
       `;
     } else if (msg.type === 'location') {
+      const coords = msg.mapUrl.split('?q=')[1] || '-6.2088,106.8456';
       contentHtml = `
-        <div class="media-map" onclick="window.open('${msg.mapUrl}', '_blank')">
-          <img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?w=300&auto=format&fit=crop&q=80" class="media-map-img" alt="Shared Location Map">
-          <div class="media-map-info">
-            <i class="fa-solid fa-location-dot" style="color: #f44336;"></i>
+        <div class="media-map" style="border-radius: 8px; overflow: hidden; background-color: var(--input-bg);">
+          <iframe src="https://maps.google.com/maps?q=${coords}&z=14&output=embed" width="100%" height="150" style="border:0; display: block;" allowfullscreen="" loading="lazy"></iframe>
+          <div class="media-map-info" onclick="window.open('${msg.mapUrl}', '_blank')" style="cursor: pointer; padding: 8px 12px; display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-location-dot" style="color: #f44336; font-size: 18px;"></i>
             <div>
-              <div style="font-weight: 600;">Shared Location</div>
-              <div style="font-size: 10px; opacity: 0.8;">Click to open live coordinates</div>
+              <div style="font-weight: 600; font-size: 13px;">Lokasi Terkini</div>
+              <div style="font-size: 10px; opacity: 0.8;">Klik untuk buka di Google Maps</div>
             </div>
           </div>
         </div>
@@ -880,6 +883,8 @@ function setupEventListeners() {
   callAudioBtn.addEventListener('click', () => startCall('audio'));
   callVideoBtn.addEventListener('click', () => startCall('video'));
   btnCallEnd.addEventListener('click', endCall);
+  btnCallAccept.addEventListener('click', acceptIncomingCall);
+  btnCallDecline.addEventListener('click', rejectIncomingCall);
 
   // Close story
   closeStoryBtn.addEventListener('click', closeStory);
@@ -1313,67 +1318,109 @@ function setupEventListeners() {
   });
 }
 
-// Active Calling Simulator with WebRTC Camera Streaming
+// Active Calling Simulator with MQTT Signaling
 let callStatusTimer = null;
+let activeCallRecipientPhone = null;
+let activeCallType = null;
+
 function startCall(type) {
   const contact = contacts.find(c => c.id === currentChatId);
   if (!contact) return;
 
+  activeCallRecipientPhone = contact.phone;
+  activeCallType = type;
+
+  // Show overlay in OUTGOING mode
   callAvatar.src = contact.avatar;
   callName.textContent = contact.name;
   callOverlay.classList.remove('hidden');
-  
+
+  btnCallAccept.classList.add('hidden');
+  btnCallDecline.classList.add('hidden');
+  btnCallEnd.classList.remove('hidden');
+  callMicBtn.classList.remove('hidden');
+  callVideoToggleBtn.classList.remove('hidden');
+
   if (type === 'video') {
     callTypeIcon.innerHTML = `<i class="fa-solid fa-video"></i>`;
-    callStatusLabel.textContent = "Requesting video access...";
     videoStreamContainer.classList.remove('hidden');
-
-    // Access real webcam stream for call overlay
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-        localStream = stream;
-        localVideo.srcObject = stream;
-        callStatusLabel.textContent = "Connecting...";
-
-        callStatusTimer = setTimeout(() => {
-          callStatusLabel.textContent = "Connected (Live)";
-          callStatusLabel.style.color = "#00e676";
-        }, 1500);
-      }).catch(err => {
-        console.warn("Camera access denied: ", err);
-        callStatusLabel.textContent = "Connecting (Voice only)...";
-        videoStreamContainer.classList.add('hidden');
-        callStatusTimer = setTimeout(() => {
-          callStatusLabel.textContent = "Connected (No camera)";
-          callStatusLabel.style.color = "#00e676";
-        }, 1500);
-      });
-    }
   } else {
     callTypeIcon.innerHTML = `<i class="fa-solid fa-phone"></i>`;
-    callStatusLabel.textContent = "Calling...";
     videoStreamContainer.classList.add('hidden');
+  }
 
-    // Request microphone access only
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-        localStream = stream;
-        callStatusTimer = setTimeout(() => {
-          callStatusLabel.textContent = "Connected";
-          callStatusLabel.style.color = "#00e676";
-        }, 1500);
-      }).catch(err => {
-        console.warn("Microphone access denied: ", err);
-        callStatusTimer = setTimeout(() => {
-          callStatusLabel.textContent = "Connected";
-          callStatusLabel.style.color = "#00e676";
-        }, 1500);
-      });
-    }
+  callStatusLabel.textContent = "Calling...";
+  callStatusLabel.style.color = "";
+
+  // Send invitation via MQTT
+  const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (myUser) {
+    const cleanRecipientPhone = contact.phone.replace(/[^a-zA-Z0-9]/g, "");
+    mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+      type: 'call_invite',
+      callType: type,
+      senderPhone: myUser.phone,
+      senderName: myUser.name,
+      senderAvatar: myProfileBtn.src
+    }));
   }
 }
 
+function acceptIncomingCall() {
+  if (!activeCallRecipientPhone) return;
+
+  const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (myUser) {
+    const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
+    mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+      type: 'call_accept',
+      senderPhone: myUser.phone
+    }));
+  }
+
+  // Switch overlay UI to active call
+  btnCallAccept.classList.add('hidden');
+  btnCallDecline.classList.add('hidden');
+  btnCallEnd.classList.remove('hidden');
+  callMicBtn.classList.remove('hidden');
+  callVideoToggleBtn.classList.remove('hidden');
+
+  // Start stream
+  startLocalStream(activeCallType);
+}
+
+function rejectIncomingCall() {
+  if (!activeCallRecipientPhone) return;
+
+  const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (myUser) {
+    const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
+    mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+      type: 'call_decline',
+      senderPhone: myUser.phone
+    }));
+  }
+
+  endCallLocally();
+}
+
 function endCall() {
+  // Send end call signal to the other party
+  if (activeCallRecipientPhone) {
+    const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+    if (myUser) {
+      const cleanRecipientPhone = activeCallRecipientPhone.replace(/[^a-zA-Z0-9]/g, "");
+      mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+        type: 'call_end',
+        senderPhone: myUser.phone
+      }));
+    }
+  }
+
+  endCallLocally();
+}
+
+function endCallLocally() {
   clearTimeout(callStatusTimer);
   callOverlay.classList.add('hidden');
   callStatusLabel.style.color = "";
@@ -1383,6 +1430,92 @@ function endCall() {
     localStream = null;
   }
   localVideo.srcObject = null;
+  activeCallRecipientPhone = null;
+  activeCallType = null;
+}
+
+function startLocalStream(type) {
+  callStatusLabel.textContent = "Connecting...";
+  
+  const constraints = type === 'video' ? { video: true, audio: true } : { audio: true };
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia(constraints).then(stream => {
+      localStream = stream;
+      if (type === 'video') {
+        localVideo.srcObject = stream;
+        videoStreamContainer.classList.remove('hidden');
+      }
+      callStatusLabel.textContent = "Connected (Live)";
+      callStatusLabel.style.color = "#00e676";
+    }).catch(err => {
+      console.warn("Media access denied: ", err);
+      callStatusLabel.textContent = "Connected (Voice only)";
+      callStatusLabel.style.color = "#00e676";
+      videoStreamContainer.classList.add('hidden');
+    });
+  } else {
+    callStatusLabel.textContent = "Connected (Simulation)";
+    callStatusLabel.style.color = "#00e676";
+  }
+}
+
+// Intercept incoming MQTT signals
+function handleIncomingCallInvite(payload) {
+  // If already in a call, auto-decline
+  if (activeCallRecipientPhone) {
+    const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+    if (myUser) {
+      const cleanRecipientPhone = payload.senderPhone.replace(/[^a-zA-Z0-9]/g, "");
+      mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+        type: 'call_decline',
+        senderPhone: myUser.phone
+      }));
+    }
+    return;
+  }
+
+  activeCallRecipientPhone = payload.senderPhone;
+  activeCallType = payload.callType;
+
+  // Show incoming call UI
+  callAvatar.src = payload.senderAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80';
+  callName.textContent = payload.senderName;
+  callOverlay.classList.remove('hidden');
+
+  btnCallAccept.classList.remove('hidden');
+  btnCallDecline.classList.remove('hidden');
+  btnCallEnd.classList.add('hidden');
+  callMicBtn.classList.add('hidden');
+  callVideoToggleBtn.classList.add('hidden');
+
+  if (payload.callType === 'video') {
+    callTypeIcon.innerHTML = `<i class="fa-solid fa-video"></i>`;
+    callStatusLabel.textContent = "Panggilan Video Masuk...";
+  } else {
+    callTypeIcon.innerHTML = `<i class="fa-solid fa-phone"></i>`;
+    callStatusLabel.textContent = "Panggilan Suara Masuk...";
+  }
+  callStatusLabel.style.color = "#ffb300";
+}
+
+function handleIncomingCallAccept(payload) {
+  if (activeCallRecipientPhone === payload.senderPhone) {
+    startLocalStream(activeCallType);
+  }
+}
+
+function handleIncomingCallDecline(payload) {
+  if (activeCallRecipientPhone === payload.senderPhone) {
+    callStatusLabel.textContent = "Call Declined";
+    callStatusLabel.style.color = "#f44336";
+    setTimeout(endCallLocally, 2000);
+  }
+}
+
+function handleIncomingCallEnd(payload) {
+  if (activeCallRecipientPhone === payload.senderPhone) {
+    endCallLocally();
+  }
 }
 
 // Story view simulation
@@ -1549,6 +1682,23 @@ function publishMqttMessage(contact, msg) {
 
 // Handle Incoming Direct Messages
 function handleIncomingMqttMessage(payload) {
+  if (payload.type === 'call_invite') {
+    handleIncomingCallInvite(payload);
+    return;
+  }
+  if (payload.type === 'call_accept') {
+    handleIncomingCallAccept(payload);
+    return;
+  }
+  if (payload.type === 'call_decline') {
+    handleIncomingCallDecline(payload);
+    return;
+  }
+  if (payload.type === 'call_end') {
+    handleIncomingCallEnd(payload);
+    return;
+  }
+
   const phone = payload.senderPhone;
   const name = payload.senderName;
 
