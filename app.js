@@ -69,6 +69,7 @@ const DEFAULT_CONTACTS = [
 let contacts = [];
 let currentChatId = null;
 let currentTab = 'chats'; // 'chats' or 'status'
+let pendingInvite = null;
 let isDarkMode = true;
 let localStream = null;
 let myStatusStories = [];
@@ -122,6 +123,7 @@ const signupPhone = document.getElementById('signup-phone');
 const signupEmail = document.getElementById('signup-email');
 const signupPassword = document.getElementById('signup-password');
 const logoutBtn = document.getElementById('logout-btn');
+const copyInviteLinkBtn = document.getElementById('copy-invite-link-btn');
 
 // New Chat Modal Elements
 const newChatBtn = document.getElementById('new-chat-btn');
@@ -216,6 +218,14 @@ const STICKERS = [
 
 // Initialize application
 function init() {
+  // Parse URL invite query parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const invitePhone = urlParams.get('invite_phone');
+  const inviteName = urlParams.get('invite_name');
+  if (invitePhone && inviteName) {
+    pendingInvite = { phone: invitePhone, name: inviteName };
+  }
+
   // Load contacts database from local storage
   const storedContacts = localStorage.getItem('wm_contacts');
   if (storedContacts) {
@@ -279,6 +289,9 @@ function checkAuthSession() {
     if (userAccount) {
       document.getElementById('settings-profile-img').parentElement.nextElementSibling.textContent = userAccount.name;
     }
+
+    // Process invite links if any
+    handlePendingInvite();
   } else {
     appContainer.classList.add('hidden');
     authContainer.classList.remove('hidden');
@@ -1166,6 +1179,25 @@ function setupEventListeners() {
       renderList();
     }
   });
+
+  // Copy Invite Link Action
+  copyInviteLinkBtn.addEventListener('click', () => {
+    const userAccount = JSON.parse(localStorage.getItem('wm_user_account'));
+    if (!userAccount) {
+      alert('Please register first to generate your custom invite link!');
+      return;
+    }
+
+    const currentUrl = window.location.href.split('?')[0];
+    const inviteUrl = `${currentUrl}?invite_phone=${encodeURIComponent(userAccount.phone)}&invite_name=${encodeURIComponent(userAccount.name)}`;
+
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      alert('Link undang berhasil disalin ke clipboard! Kirimkan link ini ke teman Anda.');
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+      alert(`Gagal menyalin link secara otomatis. Silakan salin link berikut secara manual:\n\n${inviteUrl}`);
+    });
+  });
 }
 
 // Active Calling Simulator with WebRTC Camera Streaming
@@ -1325,6 +1357,40 @@ function sendSticker(url) {
   saveToStorage();
   emojiStickerPicker.classList.add('hidden'); // Close picker
   triggerAutoReply(contact);
+}
+
+// Handle pending invite parameter on successful login/registration
+function handlePendingInvite() {
+  if (!pendingInvite) return;
+
+  // Check if contact already exists
+  let contact = contacts.find(c => c.phone === pendingInvite.phone);
+  if (!contact) {
+    const newId = contacts.length > 0 ? Math.max(...contacts.map(c => c.id)) + 1 : 1;
+    contact = {
+      id: newId,
+      name: pendingInvite.name,
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80', // default avatar
+      phone: pendingInvite.phone,
+      statusMessage: "Hey! Let's chat on Whats Massage.",
+      online: true,
+      unreadCount: 0,
+      messages: [
+        { text: "Hai! Saya terhubung melalui Link Undang Whats Massage.", sender: "received", time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+      ],
+      statusStories: []
+    };
+    contacts.push(contact);
+    saveToStorage();
+    renderList();
+  }
+
+  // Open chat room immediately
+  selectChat(contact.id);
+
+  // Clear query parameters from address bar silently
+  window.history.replaceState({}, document.title, window.location.pathname);
+  pendingInvite = null;
 }
 
 // Run application
