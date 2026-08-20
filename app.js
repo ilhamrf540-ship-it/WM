@@ -1422,6 +1422,7 @@ let activeCallRecipientPhone = null;
 let activeCallType = null;
 let localVideoFrameTimer = null;
 let peerConnection = null;
+let rtcIceQueue = [];
 const rtcConfig = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
@@ -1562,6 +1563,7 @@ function endCallLocally() {
     peerConnection.close();
     peerConnection = null;
   }
+  rtcIceQueue = [];
   if (remoteVideo) {
     remoteVideo.srcObject = null;
     remoteVideo.classList.add('hidden');
@@ -1783,6 +1785,18 @@ function initWebRtc(isCaller) {
   }
 }
 
+// Process any queued WebRTC ICE candidates once remote SDP description is set
+function processRtcIceQueue() {
+  if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+    console.log(`WebRTC: Processing ${rtcIceQueue.length} queued ICE candidates`);
+    while (rtcIceQueue.length > 0) {
+      const candidate = rtcIceQueue.shift();
+      peerConnection.addIceCandidate(candidate)
+        .catch(err => console.warn("WebRTC ICE candidate add warning/error:", err));
+    }
+  }
+}
+
 // Handle received WebRTC SDP Offer
 function handleRtcOffer(payload) {
   console.log("WebRTC: Received SDP Offer from peer");
@@ -1792,6 +1806,7 @@ function handleRtcOffer(payload) {
 
   peerConnection.setRemoteDescription(new RTCSessionDescription(payload.offer))
     .then(() => {
+      processRtcIceQueue(); // Flush queued candidates
       return peerConnection.createAnswer();
     })
     .then(answer => {
@@ -1816,15 +1831,21 @@ function handleRtcAnswer(payload) {
   console.log("WebRTC: Received SDP Answer from peer");
   if (peerConnection) {
     peerConnection.setRemoteDescription(new RTCSessionDescription(payload.answer))
+      .then(() => {
+        processRtcIceQueue(); // Flush queued candidates
+      })
       .catch(err => console.error("WebRTC remote description set error:", err));
   }
 }
 
 // Handle received WebRTC ICE Candidates
 function handleRtcCandidate(payload) {
-  if (peerConnection) {
-    peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate))
+  const candidate = new RTCIceCandidate(payload.candidate);
+  if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+    peerConnection.addIceCandidate(candidate)
       .catch(err => console.warn("WebRTC ICE candidate add warning/error:", err));
+  } else {
+    rtcIceQueue.push(candidate);
   }
 }
 
