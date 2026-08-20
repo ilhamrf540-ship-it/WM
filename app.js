@@ -196,6 +196,7 @@ const localVideo = document.getElementById('local-video');
 const callMicBtn = document.getElementById('call-mic-btn');
 const callVideoToggleBtn = document.getElementById('call-video-toggle-btn');
 const remoteVideoPlaceholder = document.getElementById('remote-video-placeholder');
+const remoteVideo = document.getElementById('remote-video');
 
 // Story Viewer Details
 const storyOverlay = document.getElementById('story-overlay');
@@ -1420,6 +1421,13 @@ let callStatusTimer = null;
 let activeCallRecipientPhone = null;
 let activeCallType = null;
 let localVideoFrameTimer = null;
+let peerConnection = null;
+const rtcConfig = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }
+  ]
+};
 
 function startCall(type) {
   const contact = contacts.find(c => c.id === currentChatId);
@@ -1498,7 +1506,9 @@ function acceptIncomingCall() {
   callVideoToggleBtn.classList.remove('hidden');
 
   // Start stream
-  startLocalStream(activeCallType);
+  startLocalStream(activeCallType, () => {
+    initWebRtc(false);
+  });
 }
 
 function rejectIncomingCall() {
@@ -1547,6 +1557,17 @@ function endCallLocally() {
   callStatusLabel.classList.remove('hidden');
   callTypeIcon.classList.remove('hidden');
   
+  // Teardown WebRTC connection
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+  if (remoteVideo) {
+    remoteVideo.srcObject = null;
+    remoteVideo.classList.add('hidden');
+  }
+  remoteVideoPlaceholder.classList.remove('hidden');
+  
   if (localStream) {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
@@ -1589,10 +1610,11 @@ function startCapturingAndSendingFrames() {
   }, 333); // 3 frames per second
 }
 
-function startLocalStream(type) {
+function startLocalStream(type, callback) {
   callStatusLabel.textContent = "Connecting...";
   
-  const constraints = type === 'video' ? { video: true, audio: true } : { audio: true };
+  // Request both video & audio constraints for WebRTC audio/video call functionality
+  const constraints = { video: true, audio: true };
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia(constraints).then(stream => {
       localStream = stream;
@@ -1611,15 +1633,18 @@ function startLocalStream(type) {
       }
       callStatusLabel.textContent = "Connected (Live)";
       callStatusLabel.style.color = "#00e676";
+      if (callback) callback();
     }).catch(err => {
       console.warn("Media access denied: ", err);
       callStatusLabel.textContent = "Connected (Voice only)";
       callStatusLabel.style.color = "#00e676";
       videoStreamContainer.classList.add('hidden');
+      if (callback) callback();
     });
   } else {
     callStatusLabel.textContent = "Connected (Simulation)";
     callStatusLabel.style.color = "#00e676";
+    if (callback) callback();
   }
 }
 
@@ -1669,7 +1694,9 @@ function handleIncomingCallInvite(payload) {
 function handleIncomingCallAccept(payload) {
   if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     showCallToast("Panggilan diterima!");
-    startLocalStream(activeCallType);
+    startLocalStream(activeCallType, () => {
+      initWebRtc(true);
+    });
   }
 }
 
@@ -1694,6 +1721,110 @@ function handleIncomingCallFrame(payload) {
   if (activeCallRecipientPhone && cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     remoteVideoPlaceholder.src = payload.frame;
     remoteVideoPlaceholder.style.filter = "brightness(0.95)"; // Clear blur during active frames
+  }
+}
+
+// Initialize WebRTC RTCPeerConnection to bridge real audio/video (sound)
+function initWebRtc(isCaller) {
+  console.log("Initializing WebRTC call connection... Caller:", isCaller);
+  if (peerConnection) {
+    peerConnection.close();
+  }
+
+  peerConnection = new RTCPeerConnection(rtcConfig);
+
+  // Bind local media stream tracks
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
+  }
+
+  // Handle remote track addition (this plays the sound & high-res live video!)
+  peerConnection.ontrack = (event) => {
+    console.log("WebRTC: Remote track received successfully!");
+    if (remoteVideo) {
+      remoteVideo.srcObject = event.streams[0];
+      remoteVideoPlaceholder.classList.add('hidden');
+      remoteVideo.classList.remove('hidden');
+    }
+  };
+
+  // Broadcast WebRTC ICE Candidate events to peer
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate && activeCallRecipientPhone) {
+      const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+      if (myUser && mqttClient && mqttClient.connected) {
+        const cleanRecipient = cleanPhoneNumber(activeCallRecipientPhone);
+        mqttClient.publish(`whats_massage/user/${cleanRecipient}`, JSON.stringify({
+          type: 'rtc_candidate',
+          senderPhone: myUser.phone,
+          candidate: event.candidate
+        }));
+      }
+    }
+  };
+
+  if (isCaller) {
+    // Generate WebRTC Offer SDP
+    peerConnection.createOffer().then(offer => {
+      return peerConnection.setLocalDescription(offer);
+    }).then(() => {
+      const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+      if (myUser && mqttClient && mqttClient.connected && activeCallRecipientPhone) {
+        const cleanRecipient = cleanPhoneNumber(activeCallRecipientPhone);
+        mqttClient.publish(`whats_massage/user/${cleanRecipient}`, JSON.stringify({
+          type: 'rtc_offer',
+          senderPhone: myUser.phone,
+          offer: peerConnection.localDescription
+        }));
+      }
+    }).catch(err => console.error("WebRTC Offer creation error:", err));
+  }
+}
+
+// Handle received WebRTC SDP Offer
+function handleRtcOffer(payload) {
+  console.log("WebRTC: Received SDP Offer from peer");
+  if (!peerConnection) {
+    initWebRtc(false);
+  }
+
+  peerConnection.setRemoteDescription(new RTCSessionDescription(payload.offer))
+    .then(() => {
+      return peerConnection.createAnswer();
+    })
+    .then(answer => {
+      return peerConnection.setLocalDescription(answer);
+    })
+    .then(() => {
+      const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+      if (myUser && mqttClient && mqttClient.connected && activeCallRecipientPhone) {
+        const cleanRecipient = cleanPhoneNumber(activeCallRecipientPhone);
+        mqttClient.publish(`whats_massage/user/${cleanRecipient}`, JSON.stringify({
+          type: 'rtc_answer',
+          senderPhone: myUser.phone,
+          answer: peerConnection.localDescription
+        }));
+      }
+    })
+    .catch(err => console.error("WebRTC Answer creation error:", err));
+}
+
+// Handle received WebRTC SDP Answer
+function handleRtcAnswer(payload) {
+  console.log("WebRTC: Received SDP Answer from peer");
+  if (peerConnection) {
+    peerConnection.setRemoteDescription(new RTCSessionDescription(payload.answer))
+      .catch(err => console.error("WebRTC remote description set error:", err));
+  }
+}
+
+// Handle received WebRTC ICE Candidates
+function handleRtcCandidate(payload) {
+  if (peerConnection) {
+    peerConnection.addIceCandidate(new RTCIceCandidate(payload.candidate))
+      .catch(err => console.warn("WebRTC ICE candidate add warning/error:", err));
   }
 }
 
@@ -1882,10 +2013,21 @@ function publishMqttMessage(contact, msg) {
   }
 }
 
-// Handle Incoming Direct Messages
 function handleIncomingMqttMessage(payload) {
   if (payload.type === 'call_frame') {
     handleIncomingCallFrame(payload);
+    return;
+  }
+  if (payload.type === 'rtc_offer') {
+    handleRtcOffer(payload);
+    return;
+  }
+  if (payload.type === 'rtc_answer') {
+    handleRtcAnswer(payload);
+    return;
+  }
+  if (payload.type === 'rtc_candidate') {
+    handleRtcCandidate(payload);
     return;
   }
   if (payload.type === 'avatar_update') {
