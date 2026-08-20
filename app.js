@@ -197,6 +197,7 @@ const callMicBtn = document.getElementById('call-mic-btn');
 const callVideoToggleBtn = document.getElementById('call-video-toggle-btn');
 const remoteVideoPlaceholder = document.getElementById('remote-video-placeholder');
 const remoteVideo = document.getElementById('remote-video');
+const remoteAudio = document.getElementById('remote-audio');
 
 // Story Viewer Details
 const storyOverlay = document.getElementById('story-overlay');
@@ -1568,6 +1569,9 @@ function endCallLocally() {
     remoteVideo.srcObject = null;
     remoteVideo.classList.add('hidden');
   }
+  if (remoteAudio) {
+    remoteAudio.srcObject = null;
+  }
   remoteVideoPlaceholder.classList.remove('hidden');
   
   if (localStream) {
@@ -1745,10 +1749,26 @@ function initWebRtc(isCaller) {
   // Handle remote track addition (this plays the sound & high-res live video!)
   peerConnection.ontrack = (event) => {
     console.log("WebRTC: Remote track received successfully!");
+    
+    // Play audio track in the dedicated remoteAudio element
+    if (remoteAudio) {
+      remoteAudio.srcObject = event.streams[0];
+      remoteAudio.play().then(() => {
+        console.log("WebRTC Audio: playback started successfully");
+      }).catch(err => {
+        console.warn("WebRTC Audio: autoplay blocked, requiring user interaction: ", err);
+      });
+    }
+
     if (remoteVideo) {
       remoteVideo.srcObject = event.streams[0];
       remoteVideoPlaceholder.classList.add('hidden');
       remoteVideo.classList.remove('hidden');
+      remoteVideo.play().then(() => {
+        console.log("WebRTC Video: playback started successfully");
+      }).catch(err => {
+        console.warn("WebRTC Video: autoplay blocked: ", err);
+      });
     }
   };
 
