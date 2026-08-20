@@ -235,17 +235,9 @@ function init() {
     pendingInvite = { phone: invitePhone, name: inviteName };
   }
 
-  // Load contacts database from local storage
-  const storedContacts = localStorage.getItem('wm_contacts');
-  if (storedContacts) {
-    contacts = JSON.parse(storedContacts);
-  } else {
-    contacts = DEFAULT_CONTACTS;
-  }
-
-  // Load user status
-  const storedStatus = localStorage.getItem('wm_my_status');
-  myStatusStories = storedStatus ? JSON.parse(storedStatus) : [];
+  // Initial reset of arrays (loaded per-user in checkAuthSession)
+  contacts = [];
+  myStatusStories = [];
 
   // Set default theme setup
   document.body.setAttribute('data-theme', 'dark');
@@ -262,12 +254,7 @@ function init() {
     document.documentElement.style.setProperty('--bg-chat-body', storedBgColor);
   }
 
-  // Load user profile picture
-  const storedProfilePic = localStorage.getItem('wm_my_profile_pic');
-  if (storedProfilePic) {
-    myProfileBtn.src = storedProfilePic;
-    settingsProfileImg.src = storedProfilePic;
-  }
+  // Profile pic is loaded per-user in checkAuthSession
 
   renderList();
   populatePicker();
@@ -286,6 +273,31 @@ function init() {
   }, 2000);
 }
 
+// Load user-specific contacts, status, and profile pic
+function loadUserSessionData(phone) {
+  const storedContacts = localStorage.getItem(`wm_contacts_${phone}`);
+  if (storedContacts) {
+    contacts = JSON.parse(storedContacts);
+  } else {
+    // Each new account starts with fresh empty chats
+    contacts = [];
+    saveToStorage();
+  }
+
+  const storedStatus = localStorage.getItem(`wm_my_status_${phone}`);
+  myStatusStories = storedStatus ? JSON.parse(storedStatus) : [];
+
+  const storedProfilePic = localStorage.getItem(`wm_my_profile_pic_${phone}`);
+  if (storedProfilePic) {
+    myProfileBtn.src = storedProfilePic;
+    settingsProfileImg.src = storedProfilePic;
+  } else {
+    const defaultPic = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+    myProfileBtn.src = defaultPic;
+    settingsProfileImg.src = defaultPic;
+  }
+}
+
 // Check Authentication Session
 function checkAuthSession() {
   const isLoggedIn = localStorage.getItem('wm_logged_in') === 'true';
@@ -298,22 +310,40 @@ function checkAuthSession() {
     if (userAccount) {
       document.getElementById('settings-profile-name').textContent = userAccount.name;
       document.getElementById('settings-profile-phone').textContent = userAccount.phone;
+      
+      // Load user-specific data
+      loadUserSessionData(userAccount.phone);
+      
       connectMqtt(userAccount.phone);
     }
+
+    renderList();
+    
+    // Reset active chat view to empty state
+    chatEmptyState.classList.remove('hidden');
+    chatActiveContainer.classList.add('hidden');
+    currentChatId = null;
 
     // Process invite links if any
     handlePendingInvite();
   } else {
     appContainer.classList.add('hidden');
     authContainer.classList.remove('hidden');
+    contacts = [];
+    myStatusStories = [];
+    currentChatId = null;
   }
 }
 
 // Local Storage Helper
 function saveToStorage() {
-  localStorage.setItem('wm_contacts', JSON.stringify(contacts));
-  localStorage.setItem('wm_my_status', JSON.stringify(myStatusStories));
-  localStorage.setItem('wm_my_profile_pic', myProfileBtn.src);
+  const userAccount = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (userAccount) {
+    const phone = userAccount.phone;
+    localStorage.setItem(`wm_contacts_${phone}`, JSON.stringify(contacts));
+    localStorage.setItem(`wm_my_status_${phone}`, JSON.stringify(myStatusStories));
+    localStorage.setItem(`wm_my_profile_pic_${phone}`, myProfileBtn.src);
+  }
   localStorage.setItem('wm_wallpaper_color', chatBody.style.backgroundColor);
   localStorage.setItem('wm_wallpaper_image', chatBody.style.backgroundImage);
 }
@@ -1061,6 +1091,13 @@ function setupEventListeners() {
     const phoneVal = signupPhone.value.trim();
     if (!phoneVal) {
       alert('Silakan masukkan nomor handphone terlebih dahulu.');
+      return;
+    }
+
+    // Validate active Indonesian phone number format
+    const phoneRegex = /^(08|\+628|628)[0-9]{8,12}$/;
+    if (!phoneRegex.test(phoneVal)) {
+      alert('Silakan masukkan nomor handphone aktif yang valid (dimulai dengan 08, 628, atau +628, minimal 10-14 digit).');
       return;
     }
 
