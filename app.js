@@ -480,6 +480,11 @@ function selectChat(id) {
   activeChatName.textContent = contact.name;
   activeChatStatus.textContent = contact.type === 'group' ? 'group chat' : `${contact.online ? 'online' : 'offline'} • ${contact.phone}`;
 
+  // Request latest profile details to keep photo in sync
+  if (contact.type !== 'group' && contact.phone) {
+    requestContactProfile(contact.phone);
+  }
+
   // Render messages
   renderMessages(contact);
 
@@ -1053,6 +1058,9 @@ function setupEventListeners() {
     contacts.push(newContact);
     saveToStorage();
     renderList();
+    
+    // Request profile picture update from the new contact
+    requestContactProfile(phone);
     
     // Hide modal and clean input
     newContactModal.classList.add('hidden');
@@ -1745,6 +1753,14 @@ function handleIncomingMqttMessage(payload) {
     handleIncomingAvatarUpdate(payload);
     return;
   }
+  if (payload.type === 'profile_request') {
+    handleIncomingProfileRequest(payload);
+    return;
+  }
+  if (payload.type === 'profile_response') {
+    handleIncomingProfileResponse(payload);
+    return;
+  }
   if (payload.type === 'call_invite') {
     handleIncomingCallInvite(payload);
     return;
@@ -1823,6 +1839,76 @@ function handleIncomingAvatarUpdate(payload) {
     }
     renderList();
     saveToStorage();
+  }
+}
+
+// Request profile info from a contact
+function requestContactProfile(contactPhone) {
+  const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (myUser && mqttClient && mqttClient.connected) {
+    const cleanRecipientPhone = contactPhone.replace(/[^a-zA-Z0-9]/g, "");
+    mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+      type: 'profile_request',
+      senderPhone: myUser.phone,
+      senderName: myUser.name,
+      senderAvatar: myProfileBtn.src
+    }));
+  }
+}
+
+// Handle incoming request for our profile details
+function handleIncomingProfileRequest(payload) {
+  const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+  if (!myUser) return;
+
+  const phone = payload.senderPhone;
+  const name = payload.senderName;
+  let contact = contacts.find(c => cleanPhoneNumber(c.phone) === cleanPhoneNumber(phone));
+  if (!contact) {
+    const newId = contacts.length > 0 ? Math.max(...contacts.map(c => c.id)) + 1 : 1;
+    contact = {
+      id: newId,
+      name: name,
+      avatar: payload.senderAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80',
+      phone: phone,
+      statusMessage: "Hey there! I am using Whats Massage.",
+      online: true,
+      unreadCount: 0,
+      messages: [],
+      statusStories: []
+    };
+    contacts.push(contact);
+  } else {
+    if (payload.senderAvatar && contact.avatar !== payload.senderAvatar) {
+      contact.avatar = payload.senderAvatar;
+    }
+  }
+  renderList();
+  saveToStorage();
+
+  // Send profile details back to the requester
+  const cleanRecipientPhone = phone.replace(/[^a-zA-Z0-9]/g, "");
+  mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+    type: 'profile_response',
+    senderPhone: myUser.phone,
+    senderName: myUser.name,
+    senderAvatar: myProfileBtn.src
+  }));
+}
+
+// Handle receiving another user's profile details
+function handleIncomingProfileResponse(payload) {
+  const phone = payload.senderPhone;
+  let contact = contacts.find(c => cleanPhoneNumber(c.phone) === cleanPhoneNumber(phone));
+  if (contact) {
+    if (payload.senderAvatar && contact.avatar !== payload.senderAvatar) {
+      contact.avatar = payload.senderAvatar;
+      if (currentChatId === contact.id) {
+        activeChatAvatar.src = contact.avatar;
+      }
+      renderList();
+      saveToStorage();
+    }
   }
 }
 
