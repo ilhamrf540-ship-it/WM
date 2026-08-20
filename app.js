@@ -206,11 +206,11 @@ const storyProgressContainer = document.getElementById('story-progress-container
 
 // Auto reply responses
 const replyResponses = [
-  "Nice! I really like how fast Whats Massage is running.",
-  "That sounds interesting! Let's talk more in a voice call.",
-  "Absolutely. Let's make sure it looks beautiful.",
-  "Understood. Let me look into this and get back to you soon.",
-  "Haha indeed! Whats Massage is definitely the best."
+  "Oke siap, nanti kita sambung lagi ya!",
+  "Wah menarik tuh, nanti telponan aja biar enak.",
+  "Siap, langsung gaskeun aja!",
+  "Oke dimengerti, nanti saya kabari lagi secepatnya.",
+  "Haha mantap sekali!"
 ];
 
 const EMOJIS = ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓','🤗','🤔','🤭','🤫','🤥','😶','😐','😑','😬','🙄','😯','😦','😧','😮','😲','🥱','😴','🤤','😪','😵','🤐','🥴','🤢','🤮','🤧','😷','🤒','🤕'];
