@@ -1318,6 +1318,12 @@ function setupEventListeners() {
   });
 }
 
+// Clean phone numbers helper
+function cleanPhoneNumber(num) {
+  if (!num) return "";
+  return num.replace(/[^a-zA-Z0-9]/g, "");
+}
+
 // Active Calling Simulator with MQTT Signaling
 let callStatusTimer = null;
 let activeCallRecipientPhone = null;
@@ -1499,13 +1505,13 @@ function handleIncomingCallInvite(payload) {
 }
 
 function handleIncomingCallAccept(payload) {
-  if (activeCallRecipientPhone === payload.senderPhone) {
+  if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     startLocalStream(activeCallType);
   }
 }
 
 function handleIncomingCallDecline(payload) {
-  if (activeCallRecipientPhone === payload.senderPhone) {
+  if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     callStatusLabel.textContent = "Call Declined";
     callStatusLabel.style.color = "#f44336";
     setTimeout(endCallLocally, 2000);
@@ -1513,7 +1519,7 @@ function handleIncomingCallDecline(payload) {
 }
 
 function handleIncomingCallEnd(payload) {
-  if (activeCallRecipientPhone === payload.senderPhone) {
+  if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     endCallLocally();
   }
 }
@@ -1702,7 +1708,7 @@ function handleIncomingMqttMessage(payload) {
   const phone = payload.senderPhone;
   const name = payload.senderName;
 
-  let contact = contacts.find(c => c.phone === phone);
+  let contact = contacts.find(c => cleanPhoneNumber(c.phone) === cleanPhoneNumber(phone));
   if (!contact) {
     const newId = contacts.length > 0 ? Math.max(...contacts.map(c => c.id)) + 1 : 1;
     contact = {
