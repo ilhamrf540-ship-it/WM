@@ -894,6 +894,46 @@ function setupEventListeners() {
   btnCallAccept.addEventListener('click', acceptIncomingCall);
   btnCallDecline.addEventListener('click', rejectIncomingCall);
 
+  // Microphone toggle button inside call screen
+  let micEnabled = true;
+  callMicBtn.addEventListener('click', () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        micEnabled = !micEnabled;
+        audioTrack.enabled = micEnabled;
+        callMicBtn.style.backgroundColor = micEnabled ? 'rgba(255,255,255,0.2)' : '#f44336';
+        callMicBtn.innerHTML = micEnabled ? '<i class="fa-solid fa-microphone"></i>' : '<i class="fa-solid fa-microphone-slash"></i>';
+        showCallToast(micEnabled ? "Microphone aktif" : "Microphone dimatikan");
+      }
+    }
+  });
+
+  // Camera video toggle button inside call screen
+  let cameraEnabled = true;
+  callVideoToggleBtn.addEventListener('click', () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        cameraEnabled = !cameraEnabled;
+        videoTrack.enabled = cameraEnabled;
+        callVideoToggleBtn.style.backgroundColor = cameraEnabled ? 'rgba(255,255,255,0.2)' : '#f44336';
+        callVideoToggleBtn.innerHTML = cameraEnabled ? '<i class="fa-solid fa-video"></i>' : '<i class="fa-solid fa-video-slash"></i>';
+        showCallToast(cameraEnabled ? "Kamera aktif" : "Kamera dimatikan");
+      }
+    }
+  });
+
+  // Global body gesture interceptor to play remote audio/video tracks if blocked by browser autoplay policy
+  document.body.addEventListener('click', () => {
+    if (remoteAudio && remoteAudio.srcObject && remoteAudio.paused) {
+      remoteAudio.play().catch(e => console.warn("Forced remote audio play:", e));
+    }
+    if (remoteVideo && remoteVideo.srcObject && remoteVideo.paused) {
+      remoteVideo.play().catch(e => console.warn("Forced remote video play:", e));
+    }
+  }, { once: false });
+
   // Close story
   closeStoryBtn.addEventListener('click', closeStory);
 
@@ -1660,6 +1700,7 @@ function startLocalStream(type, callback) {
       if (callback) callback();
     }).catch(err => {
       console.warn("Media access denied: ", err);
+      alert("Whats Massage membutuhkan izin mikrofon & kamera untuk menelepon!\n\nSilakan klik ikon gembok di sebelah kiri alamat URL di bagian atas browser Anda, lalu ubah izin Kamera dan Mikrofon menjadi 'Allow' (Izinkan), kemudian muat ulang halaman.");
       callStatusLabel.textContent = "Connected (Voice only)";
       callStatusLabel.style.color = "#00e676";
       videoStreamContainer.classList.add('hidden');
