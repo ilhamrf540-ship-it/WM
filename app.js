@@ -1652,17 +1652,11 @@ function startLocalStream(type, callback) {
         localVideo.srcObject = stream;
         videoStreamContainer.classList.remove('hidden');
         
-        // Hide overlay elements that block the video stream
-        callAvatar.classList.add('hidden');
-        callName.classList.add('hidden');
-        callStatusLabel.classList.add('hidden');
-        callTypeIcon.classList.add('hidden');
-        
-        // Start transmitting live camera frames to opponent
+        // Start transmitting live camera frames to opponent (fallback)
         startCapturingAndSendingFrames();
       }
-      callStatusLabel.textContent = "Connected (Live)";
-      callStatusLabel.style.color = "#00e676";
+      callStatusLabel.textContent = "Connecting...";
+      callStatusLabel.style.color = "";
       if (callback) callback();
     }).catch(err => {
       console.warn("Media access denied: ", err);
@@ -1751,6 +1745,15 @@ function handleIncomingCallFrame(payload) {
   if (activeCallRecipientPhone && cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     remoteVideoPlaceholder.src = payload.frame;
     remoteVideoPlaceholder.style.filter = "brightness(0.95)"; // Clear blur during active frames
+    
+    // Hide overlay elements blocking the video view
+    callAvatar.classList.add('hidden');
+    callName.classList.add('hidden');
+    callStatusLabel.classList.add('hidden');
+    callTypeIcon.classList.add('hidden');
+
+    callStatusLabel.textContent = "Connected (Live)";
+    callStatusLabel.style.color = "#00e676";
   }
 }
 
@@ -1788,6 +1791,16 @@ function initWebRtc(isCaller) {
       remoteVideo.srcObject = event.streams[0];
       remoteVideoPlaceholder.classList.add('hidden');
       remoteVideo.classList.remove('hidden');
+      
+      // Hide the overlay elements since the remote video is now playing!
+      callAvatar.classList.add('hidden');
+      callName.classList.add('hidden');
+      callStatusLabel.classList.add('hidden');
+      callTypeIcon.classList.add('hidden');
+
+      callStatusLabel.textContent = "Connected (Live)";
+      callStatusLabel.style.color = "#00e676";
+
       remoteVideo.play().then(() => {
         console.log("WebRTC Video: playback started successfully");
       }).catch(err => {
