@@ -1778,9 +1778,9 @@ function handleIncomingCallInvite(payload) {
 function handleIncomingCallAccept(payload) {
   if (cleanPhoneNumber(activeCallRecipientPhone) === cleanPhoneNumber(payload.senderPhone)) {
     showCallToast("Panggilan diterima!");
-    startLocalStream(activeCallType, () => {
-      initWebRtc(true);
-    });
+    // Local stream is already active from when startCall was initiated.
+    // Call initWebRtc directly to avoid hardware access conflicts and errors.
+    initWebRtc(true);
   }
 }
 
