@@ -1619,8 +1619,8 @@ function startCapturingAndSendingFrames() {
 function startLocalStream(type, callback) {
   callStatusLabel.textContent = "Connecting...";
   
-  // Request both video & audio constraints for WebRTC audio/video call functionality
-  const constraints = { video: true, audio: true };
+  // Request video only for video calls; request audio always. Prevents failure on devices without webcams.
+  const constraints = type === 'video' ? { video: true, audio: true } : { audio: true };
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia(constraints).then(stream => {
       localStream = stream;
