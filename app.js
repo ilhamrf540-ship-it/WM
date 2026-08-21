@@ -441,7 +441,7 @@ function renderList() {
     `;
     sidebarList.appendChild(myStatusItem);
 
-    const filtered = contacts.filter(c => c.statusStories.length > 0 && c.name.toLowerCase().includes(searchVal));
+    const filtered = contacts.filter(c => c.statusStories && c.statusStories.length > 0 && c.name.toLowerCase().includes(searchVal));
     filtered.forEach(contact => {
       const item = document.createElement('div');
       item.className = 'list-item';
@@ -456,7 +456,7 @@ function renderList() {
             <span class="item-name">${contact.name}</span>
           </div>
           <div class="item-subcontent">
-            <span class="item-message">${contact.statusStories[0].time}</span>
+            <span class="item-message">${contact.statusStories[0] ? contact.statusStories[0].time : ''}</span>
           </div>
         </div>
       `;
@@ -911,43 +911,7 @@ function setupEventListeners() {
     profilePicInput.click();
   });
 
-  // Helper to compress and resize images to stay within MQTT size limits (max 256KB)
-  function compressAndResizeImage(file, maxWidth, maxHeight, quality, callback) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
 
-        // Calculate aspect ratio
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round((width * maxHeight) / height);
-            height = maxHeight;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Export as compressed JPEG
-        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-        callback(dataUrl);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  }
 
   profilePicInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -1405,6 +1369,44 @@ function cleanPhoneNumber(num) {
     cleaned = "08" + cleaned.slice(3);
   }
   return cleaned;
+}
+
+// Helper to compress and resize images to stay within MQTT size limits (max 256KB)
+function compressAndResizeImage(file, maxWidth, maxHeight, quality, callback) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      // Calculate aspect ratio
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Export as compressed JPEG
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      callback(dataUrl);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 // Display simple floating toast notification for call events
