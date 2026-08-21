@@ -1636,8 +1636,15 @@ function startCapturingAndSendingFrames() {
 function startLocalStream(type, callback) {
   callStatusLabel.textContent = "Connecting...";
   
-  // Request video only for video calls; request audio always. Prevents failure on devices without webcams.
-  const constraints = type === 'video' ? { video: true, audio: true } : { audio: true };
+  // Request high-definition/4K ideal constraints for video calls to get maximum camera sharpness.
+  const constraints = type === 'video' ? { 
+    video: {
+      width: { ideal: 3840 },
+      height: { ideal: 2160 },
+      facingMode: "user"
+    }, 
+    audio: true 
+  } : { audio: true };
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia(constraints).then(stream => {
       localStream = stream;
