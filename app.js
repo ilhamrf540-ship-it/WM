@@ -1602,20 +1602,20 @@ function endCallLocally() {
   activeCallType = null;
 }
 
-// Low-resolution camera frames capturing and sending over MQTT (max 3 fps to stay within payload limits)
+// Camera frames capturing and sending over MQTT (max 3 fps to stay within payload limits, optimized to 320x240 for clarity)
 function startCapturingAndSendingFrames() {
   if (localVideoFrameTimer) clearInterval(localVideoFrameTimer);
 
   const canvas = document.createElement('canvas');
-  canvas.width = 120;
-  canvas.height = 90;
+  canvas.width = 320;
+  canvas.height = 240;
   const ctx = canvas.getContext('2d');
 
   localVideoFrameTimer = setInterval(() => {
     if (localStream && mqttClient && mqttClient.connected && activeCallRecipientPhone) {
       try {
         ctx.drawImage(localVideo, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // Low-res JPEG compression (50% quality)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.5); // 320x240 JPEG compression (50% quality)
 
         const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
         if (myUser) {
