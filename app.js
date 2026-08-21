@@ -981,18 +981,33 @@ function setupEventListeners() {
   statusPicInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target.result;
+      // Compress and resize status image to 400x500 max, 0.6 quality (JPEG)
+      compressAndResizeImage(file, 400, 500, 0.6, (dataUrl) => {
         myStatusStories.unshift({
           image: dataUrl,
           caption: "My Status Update!",
-          time: "Just now"
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         });
         renderList();
         saveToStorage();
-      };
-      reader.readAsDataURL(file);
+
+        // Broadcast the new status to all contacts instantly
+        const myUser = JSON.parse(localStorage.getItem('wm_user_account'));
+        if (myUser && mqttClient && mqttClient.connected) {
+          contacts.forEach(contact => {
+            if (contact.type !== 'group' && contact.phone) {
+              const cleanRecipientPhone = cleanPhoneNumber(contact.phone);
+              mqttClient.publish(`whats_massage/user/${cleanRecipientPhone}`, JSON.stringify({
+                type: 'status_update',
+                senderPhone: myUser.phone,
+                senderName: myUser.name,
+                senderAvatar: myProfileBtn.src,
+                statusStories: myStatusStories
+              }));
+            }
+          });
+        }
+      });
     }
   });
 
@@ -2055,6 +2070,10 @@ function publishMqttMessage(contact, msg) {
 }
 
 function handleIncomingMqttMessage(payload) {
+  if (payload.type === 'status_update') {
+    handleIncomingStatusUpdate(payload);
+    return;
+  }
   if (payload.type === 'call_frame') {
     handleIncomingCallFrame(payload);
     return;
@@ -2173,7 +2192,8 @@ function requestContactProfile(contactPhone) {
       type: 'profile_request',
       senderPhone: myUser.phone,
       senderName: myUser.name,
-      senderAvatar: myProfileBtn.src
+      senderAvatar: myProfileBtn.src,
+      statusStories: myStatusStories // Share our status updates as well
     }));
   }
 }
@@ -2197,12 +2217,15 @@ function handleIncomingProfileRequest(payload) {
       online: true,
       unreadCount: 0,
       messages: [],
-      statusStories: []
+      statusStories: payload.statusStories || []
     };
     contacts.push(contact);
   } else {
     if (payload.senderAvatar && contact.avatar !== payload.senderAvatar) {
       contact.avatar = payload.senderAvatar;
+    }
+    if (payload.statusStories) {
+      contact.statusStories = payload.statusStories;
     }
   }
   renderList();
@@ -2214,7 +2237,8 @@ function handleIncomingProfileRequest(payload) {
     type: 'profile_response',
     senderPhone: myUser.phone,
     senderName: myUser.name,
-    senderAvatar: myProfileBtn.src
+    senderAvatar: myProfileBtn.src,
+    statusStories: myStatusStories // Share our status updates in response
   }));
 }
 
@@ -2223,14 +2247,33 @@ function handleIncomingProfileResponse(payload) {
   const phone = payload.senderPhone;
   let contact = contacts.find(c => cleanPhoneNumber(c.phone) === cleanPhoneNumber(phone));
   if (contact) {
+    let changed = false;
     if (payload.senderAvatar && contact.avatar !== payload.senderAvatar) {
       contact.avatar = payload.senderAvatar;
       if (currentChatId === contact.id) {
         activeChatAvatar.src = contact.avatar;
       }
+      changed = true;
+    }
+    if (payload.statusStories) {
+      contact.statusStories = payload.statusStories;
+      changed = true;
+    }
+    if (changed) {
       renderList();
       saveToStorage();
     }
+  }
+}
+
+// Handle incoming status update broadcasts from contacts
+function handleIncomingStatusUpdate(payload) {
+  const phone = payload.senderPhone;
+  let contact = contacts.find(c => cleanPhoneNumber(c.phone) === cleanPhoneNumber(phone));
+  if (contact) {
+    contact.statusStories = payload.statusStories || [];
+    renderList();
+    saveToStorage();
   }
 }
 
